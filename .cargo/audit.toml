@@ -1,2 +1,7 @@
 [advisories]
-ignore = []
+# quick-xml 0.30.0 is a build-dependency of xcb (pulled in via gpui -> zed-scap,
+# the screen-capture feature, on Linux/FreeBSD/Windows). It only parses xcb's own
+# vendored protocol XML at build time, not runtime/untrusted input. xcb 1.7.0 is
+# the latest release and hasn't bumped quick-xml yet, so there's no fix to
+# upgrade to. Revisit and remove these once xcb releases a fix.
+ignore = ["RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]
