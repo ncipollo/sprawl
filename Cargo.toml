@@ -1,0 +1,25 @@
+[package]
+name = "sprawl"
+description = "What was I doing? Where did it go?"
+edition = "2024"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ncipollo/sprawl"
+version = "0.1.0"
+
+[dependencies]
+gpui = "0.2.2"
+
+[package.metadata.bundle]
+name = "Sprawl"
+identifier = "com.ncipollo.sprawl"
+short_description = "What was I doing? Where did it go?"
+category = "public.app-category.productivity"
+osx_minimum_system_version = "10.15"
+
+[lints.clippy]
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+too_many_arguments = "warn"
+
+[dev-dependencies]
