@@ -2,3 +2,4 @@
 
 pub mod app;
 pub mod hello;
+pub mod menu;
