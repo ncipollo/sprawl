@@ -4,19 +4,14 @@
 pub mod resize;
 
 use crate::feature::section::Section;
+use crate::ui::colors;
+use crate::ui::pull_request_pane::PullRequestPane;
 use crate::ui::split_pane::resize::ResizeState;
 use gpui::{
-    App, Context, IntoElement, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Render, Window,
-    canvas, div, prelude::*, px, rgb,
+    App, Context, Entity, IntoElement, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Render,
+    Window, canvas, div, prelude::*, px, rgb,
 };
 
-const SIDEBAR_BACKGROUND: u32 = 0x252526;
-const CONTENT_BACKGROUND: u32 = 0x1e1e1e;
-const BORDER_COLOR: u32 = 0x3c3c3c;
-const ROW_SELECTED_BACKGROUND: u32 = 0x37373d;
-const ROW_HOVER_BACKGROUND: u32 = 0x2a2d2e;
-const PRIMARY_TEXT: u32 = 0xffffff;
-const SECONDARY_TEXT: u32 = 0xcccccc;
 const DIVIDER_WIDTH: f32 = 6.0;
 
 /// The root view: a navigation sidebar on the left, a content pane on the
@@ -24,13 +19,16 @@ const DIVIDER_WIDTH: f32 = 6.0;
 pub struct SplitPane {
     resize: ResizeState,
     selected: Section,
+    content: Entity<PullRequestPane>,
 }
 
 impl SplitPane {
-    pub fn new() -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let selected = Section::MyPrs;
         Self {
             resize: ResizeState::new(),
-            selected: Section::MyPrs,
+            selected,
+            content: cx.new(|cx| PullRequestPane::new(selected, cx)),
         }
     }
 
@@ -41,9 +39,9 @@ impl SplitPane {
             .h_full()
             .flex()
             .flex_col()
-            .bg(rgb(SIDEBAR_BACKGROUND))
+            .bg(rgb(colors::SIDEBAR_BACKGROUND))
             .border_r_1()
-            .border_color(rgb(BORDER_COLOR))
+            .border_color(rgb(colors::BORDER))
             .children(
                 Section::all()
                     .into_iter()
@@ -60,14 +58,16 @@ impl SplitPane {
             .py_1()
             .cursor_pointer()
             .text_color(rgb(if selected {
-                PRIMARY_TEXT
+                colors::PRIMARY_TEXT
             } else {
-                SECONDARY_TEXT
+                colors::SECONDARY_TEXT
             }))
-            .when(selected, |row| row.bg(rgb(ROW_SELECTED_BACKGROUND)))
-            .hover(|row| row.bg(rgb(ROW_HOVER_BACKGROUND)))
+            .when(selected, |row| row.bg(rgb(colors::ROW_SELECTED_BACKGROUND)))
+            .hover(|row| row.bg(rgb(colors::ROW_HOVER_BACKGROUND)))
             .on_click(cx.listener(move |this, _event, _window, cx| {
                 this.selected = section;
+                let content = this.content.clone();
+                content.update(cx, |pane, cx| pane.select(section, cx));
                 cx.notify();
             }))
             .child(section.title())
@@ -80,7 +80,7 @@ impl SplitPane {
             .flex_shrink_0()
             .h_full()
             .cursor_col_resize()
-            .bg(rgb(BORDER_COLOR))
+            .bg(rgb(colors::BORDER))
             .child(
                 canvas(
                     |_, _, _| (),
@@ -126,25 +126,6 @@ impl SplitPane {
             entity.update(cx, |this, _| this.resize.end());
         });
     }
-
-    fn content(&self) -> impl IntoElement {
-        div()
-            .flex_1()
-            .h_full()
-            .flex()
-            .justify_center()
-            .items_center()
-            .bg(rgb(CONTENT_BACKGROUND))
-            .text_xl()
-            .text_color(rgb(PRIMARY_TEXT))
-            .child(self.selected.title())
-    }
-}
-
-impl Default for SplitPane {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl Render for SplitPane {
@@ -155,6 +136,6 @@ impl Render for SplitPane {
             .size_full()
             .child(self.sidebar(cx))
             .child(self.divider(cx))
-            .child(self.content())
+            .child(self.content.clone())
     }
 }

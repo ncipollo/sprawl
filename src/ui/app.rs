@@ -15,7 +15,7 @@ pub fn run() {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 ..Default::default()
             },
-            |_, cx| cx.new(|_| SplitPane::new()),
+            |_, cx| cx.new(SplitPane::new),
         )
         .expect("failed to open the root window");
         cx.activate(true);
