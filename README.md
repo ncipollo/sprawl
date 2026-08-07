@@ -13,7 +13,8 @@ A desktop app built with [gpui](https://www.gpui.rs/), Zed's GPU-accelerated UI 
 
     cargo run
 
-Opens a 480×480 window, centered on screen, showing "Hello, world!".
+Opens a 1024×720 window, centered on screen, with a navigation sidebar on the
+left and a content pane on the right.
 
 ## Develop
 
