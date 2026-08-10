@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 /// How long a fetched result is considered fresh.
-pub const DEFAULT_TTL: Duration = Duration::from_secs(15 * 60);
+pub const DEFAULT_TTL: Duration = Duration::from_secs(5 * 60);
 
 /// How usable a cached result is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
