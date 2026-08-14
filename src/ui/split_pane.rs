@@ -5,11 +5,11 @@ pub mod resize;
 
 use crate::feature::section::Section;
 use crate::ui::colors;
-use crate::ui::pull_request_pane::PullRequestPane;
+use crate::ui::section_pane::SectionPane;
 use crate::ui::split_pane::resize::ResizeState;
 use gpui::{
     App, Context, Entity, IntoElement, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Render,
-    Window, canvas, div, prelude::*, px, rgb,
+    Subscription, Window, canvas, div, prelude::*, px, rgb,
 };
 
 const DIVIDER_WIDTH: f32 = 6.0;
@@ -18,17 +18,24 @@ const DIVIDER_WIDTH: f32 = 6.0;
 /// right, and a draggable divider between them.
 pub struct SplitPane {
     resize: ResizeState,
-    selected: Section,
-    content: Entity<PullRequestPane>,
+    sections: Vec<Section>,
+    selected: usize,
+    content: Entity<SectionPane>,
+    /// Re-renders the sidebar when the content pane learns a section's
+    /// script-provided title.
+    _content_observation: Subscription,
 }
 
 impl SplitPane {
-    pub fn new(cx: &mut Context<Self>) -> Self {
-        let selected = Section::MyPrs;
+    pub fn new(sections: Vec<Section>, cx: &mut Context<Self>) -> Self {
+        let content = cx.new(|cx| SectionPane::new(&sections, cx));
+        let observation = cx.observe(&content, |_, _, cx| cx.notify());
         Self {
             resize: ResizeState::new(),
-            selected,
-            content: cx.new(|cx| PullRequestPane::new(selected, cx)),
+            sections,
+            selected: 0,
+            content,
+            _content_observation: observation,
         }
     }
 
@@ -43,15 +50,15 @@ impl SplitPane {
             .border_r_1()
             .border_color(rgb(colors::BORDER))
             .children(
-                Section::all()
-                    .into_iter()
+                self.sections
+                    .iter()
                     .enumerate()
                     .map(|(ix, section)| self.sidebar_row(section, ix, cx)),
             )
     }
 
-    fn sidebar_row(&self, section: Section, ix: usize, cx: &Context<Self>) -> impl IntoElement {
-        let selected = section == self.selected;
+    fn sidebar_row(&self, section: &Section, ix: usize, cx: &Context<Self>) -> impl IntoElement {
+        let selected = ix == self.selected;
         div()
             .id(("section", ix))
             .px_2()
@@ -65,12 +72,13 @@ impl SplitPane {
             .when(selected, |row| row.bg(rgb(colors::ROW_SELECTED_BACKGROUND)))
             .hover(|row| row.bg(rgb(colors::ROW_HOVER_BACKGROUND)))
             .on_click(cx.listener(move |this, _event, _window, cx| {
-                this.selected = section;
+                this.selected = ix;
+                let section = this.sections[ix].clone();
                 let content = this.content.clone();
                 content.update(cx, |pane, cx| pane.select(section, cx));
                 cx.notify();
             }))
-            .child(section.title())
+            .child(self.content.read(cx).sidebar_title(section))
     }
 
     fn divider(&self, cx: &Context<Self>) -> impl IntoElement {
