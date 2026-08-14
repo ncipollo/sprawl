@@ -1,5 +1,5 @@
-use sprawl::ui::app;
+use std::process::ExitCode;
 
-fn main() {
-    app::run();
+fn main() -> ExitCode {
+    sprawl::cli::router::run()
 }

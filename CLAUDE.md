@@ -2,10 +2,13 @@
 
 ## Architecture
 
-The code is broken down into two layers (see `docs/arch.md`):
+The code is broken down into three layers (see `docs/arch.md`):
 
-- `ui` — The view layer, built with gpui. `main` calls the top-level entry point in this module; each view gets its own file and implements `Render`. No domain logic lives in this layer.
+- `cli` — A thin clap router; `main` calls `cli::router::run`. No domain logic: it dispatches to `ui::app::run` for the gui and to the `feature::info` pages for `--info`.
+- `ui` — The view layer, built with gpui. Each view gets its own file and implements `Render`. No domain logic lives in this layer.
 - `feature` — Where all domain logic lives. The ui layer calls through to feature.
+
+Sections are driven by user JavaScript files in `~/.sprawl/default`: `feature/config` lists and scaffolds them, `feature/script` evaluates them in a sandboxed boa engine (only injected capability: `shell`), `feature/section` caches results stale-while-revalidate, and `ui/section_pane` renders them.
 
 ## After Each Change
 Run the following commands after every code change and fix any issues before considering the change complete:
