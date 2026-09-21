@@ -118,11 +118,63 @@ mod tests {
         assert!(matches!(error, ScriptError::Schema(_)));
     }
 
-    #[test]
-    fn the_sandbox_has_no_fetch() {
-        let error = evaluate("fetch('https://example.com');", fake()).expect_err("should fail");
+    /// Globals that would give a script network or host access. Every
+    /// one must be absent: `shell` is the sandbox's only door out.
+    const FORBIDDEN_GLOBALS: &[&str] = &[
+        "fetch",
+        "XMLHttpRequest",
+        "WebSocket",
+        "EventSource",
+        "Request",
+        "Response",
+        "Headers",
+        "URL",
+        "Worker",
+        "navigator",
+        "window",
+        "self",
+        "global",
+        "require",
+        "process",
+        "Deno",
+        "Bun",
+        "setTimeout",
+        "setInterval",
+    ];
 
-        assert!(matches!(error, ScriptError::Evaluate(_)));
+    #[test]
+    fn the_sandbox_has_no_network_or_host_globals() {
+        let checks = FORBIDDEN_GLOBALS
+            .iter()
+            .map(|name| format!("{{ type: \"tile\", title: typeof {name} }}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let source = format!("({{ title: \"probe\", items: [{checks}] }});");
+
+        let config = evaluate(&source, fake()).expect("should parse");
+
+        for (name, item) in FORBIDDEN_GLOBALS.iter().zip(&config.items) {
+            let SectionItem::Tile(tile) = item;
+            assert_eq!(tile.title, "undefined", "{name} is reachable from scripts");
+        }
+    }
+
+    #[test]
+    fn the_only_global_scripts_can_enumerate_is_shell() {
+        let source = r#"({ title: "probe", items: [{ type: "tile", title: Object.getOwnPropertyNames(globalThis).filter((n) => !(n in Object.getPrototypeOf(globalThis) ?? {})).sort().join(",") }] });"#;
+
+        let config = evaluate(source, fake()).expect("should parse");
+
+        let SectionItem::Tile(tile) = &config.items[0];
+        assert!(
+            !tile
+                .title
+                .split(',')
+                .any(|name| FORBIDDEN_GLOBALS.contains(&name)),
+            "forbidden global present: {}",
+            tile.title
+        );
+        assert!(tile.title.split(',').any(|name| name == "shell"));
     }
 
     #[test]
