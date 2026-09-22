@@ -12,14 +12,20 @@ pub fn run() {
     Application::new().run(|cx: &mut App| {
         menu::init(cx);
         let bounds = Bounds::centered(None, size(px(WINDOW_WIDTH), px(WINDOW_HEIGHT)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                ..Default::default()
-            },
-            |_, cx| cx.new(|cx| SplitPane::new(sections, cx)),
-        )
-        .expect("failed to open the root window");
+        let window = cx
+            .open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    ..Default::default()
+                },
+                |_, cx| cx.new(|cx| SplitPane::new(sections, cx)),
+            )
+            .expect("failed to open the root window");
+        cx.on_action(move |_: &menu::Refresh, cx: &mut App| {
+            window
+                .update(cx, |pane, _window, cx| pane.refresh_selected(cx))
+                .ok();
+        });
         cx.activate(true);
     });
 }

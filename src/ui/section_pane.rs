@@ -53,10 +53,26 @@ impl SectionPane {
             .map_or_else(|| section.fallback_title.clone(), str::to_string)
     }
 
+    /// Re-runs the selected section's script even when its cache entry is
+    /// fresh. A no-op with no selection or a run already in flight.
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        let Some(section) = self.selected.clone() else {
+            return;
+        };
+        let decision = self.store.force_refresh(&section.path);
+        self.act_on(decision, section.path, cx);
+        cx.notify();
+    }
+
     fn load(&mut self, path: &Path, cx: &mut Context<Self>) {
-        match self.store.visit(path) {
+        let decision = self.store.visit(path);
+        self.act_on(decision, path.to_path_buf(), cx);
+    }
+
+    fn act_on(&mut self, decision: FetchDecision, path: PathBuf, cx: &mut Context<Self>) {
+        match decision {
             FetchDecision::Idle => {}
-            FetchDecision::Fetch | FetchDecision::Refresh => self.fetch(path.to_path_buf(), cx),
+            FetchDecision::Fetch | FetchDecision::Refresh => self.fetch(path, cx),
         }
     }
 

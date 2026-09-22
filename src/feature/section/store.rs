@@ -67,6 +67,24 @@ impl SectionStore {
             CacheState::Stale => FetchDecision::Refresh,
             CacheState::Missing => FetchDecision::Fetch,
         };
+        self.start_loading(path, decision)
+    }
+
+    /// Forces the script at `path` to re-run regardless of cache freshness.
+    /// A run already in flight is left alone.
+    pub fn force_refresh(&mut self, path: &Path) -> FetchDecision {
+        if self.loading.contains(path) {
+            return FetchDecision::Idle;
+        }
+        let decision = if self.cache.contains(path) {
+            FetchDecision::Refresh
+        } else {
+            FetchDecision::Fetch
+        };
+        self.start_loading(path, decision)
+    }
+
+    fn start_loading(&mut self, path: &Path, decision: FetchDecision) -> FetchDecision {
         self.loading.insert(path.to_path_buf());
         decision
     }
@@ -315,5 +333,60 @@ mod tests {
         store.visit(&path());
 
         assert!(!store.is_refreshing(&path()));
+    }
+
+    #[test]
+    fn force_refresh_fetches_when_nothing_is_cached() {
+        let mut store = store_with_clock(FixedClock::new());
+
+        let decision = store.force_refresh(&path());
+
+        assert_eq!(decision, FetchDecision::Fetch);
+    }
+
+    #[test]
+    fn force_refresh_refreshes_a_fresh_cached_result() {
+        let mut store = store_with_clock(FixedClock::new());
+        store.visit(&path());
+        store.finish_fetch(&path(), Ok(populated_config()));
+
+        let decision = store.force_refresh(&path());
+
+        assert_eq!(decision, FetchDecision::Refresh);
+    }
+
+    #[test]
+    fn force_refresh_refreshes_a_stale_cached_result() {
+        let clock = FixedClock::new();
+        let mut store = store_with_clock(clock.clone());
+        store.visit(&path());
+        store.finish_fetch(&path(), Ok(populated_config()));
+        clock.advance(Duration::from_secs(16 * 60));
+
+        let decision = store.force_refresh(&path());
+
+        assert_eq!(decision, FetchDecision::Refresh);
+    }
+
+    #[test]
+    fn force_refresh_is_idle_while_a_run_is_already_going() {
+        let mut store = store_with_clock(FixedClock::new());
+        store.visit(&path());
+
+        let decision = store.force_refresh(&path());
+
+        assert_eq!(decision, FetchDecision::Idle);
+    }
+
+    #[test]
+    fn force_refresh_keeps_the_cached_result_visible_while_it_runs() {
+        let mut store = store_with_clock(FixedClock::new());
+        store.visit(&path());
+        store.finish_fetch(&path(), Ok(populated_config()));
+
+        store.force_refresh(&path());
+
+        assert!(store.is_refreshing(&path()));
+        assert_eq!(store.display_state(&path()), DisplayState::Populated);
     }
 }
