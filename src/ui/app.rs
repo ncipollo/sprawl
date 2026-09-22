@@ -22,9 +22,15 @@ pub fn run() {
             )
             .expect("failed to open the root window");
         cx.on_action(move |_: &menu::Refresh, cx: &mut App| {
-            window
-                .update(cx, |pane, _window, cx| pane.refresh_selected(cx))
-                .ok();
+            // Menu-triggered actions are dispatched from inside an update of
+            // this same window, so updating it again here must be deferred
+            // until that update finishes — otherwise it fails as a reentrant
+            // borrow.
+            cx.defer(move |cx| {
+                window
+                    .update(cx, |pane, _window, cx| pane.refresh_selected(cx))
+                    .ok();
+            });
         });
         cx.activate(true);
     });
