@@ -16,6 +16,7 @@ use boa_engine::{Context, Source};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+use std::thread;
 
 /// Evaluates `source` and interprets its completion value as a section.
 pub fn evaluate(source: &str, runner: Arc<dyn ShellRunner>) -> Result<SectionConfig, ScriptError> {
@@ -31,10 +32,19 @@ pub fn evaluate(source: &str, runner: Arc<dyn ShellRunner>) -> Result<SectionCon
     serde_json::from_value(json).map_err(|error| ScriptError::Schema(error.to_string()))
 }
 
-/// Reads and evaluates the script at `path`.
+/// Reads and evaluates the script at `path` on its own thread. `boa`'s
+/// recursive-descent parser needs a full-size stack; the GCD queue that
+/// `gpui` runs background work on gives only 512KB, which an unoptimized
+/// build overflows.
 pub fn run_file(path: &Path, runner: Arc<dyn ShellRunner>) -> Result<SectionConfig, ScriptError> {
-    let source = fs::read_to_string(path).map_err(|error| ScriptError::Read(error.to_string()))?;
-    evaluate(&source, runner)
+    let path = path.to_path_buf();
+    thread::spawn(move || {
+        let source =
+            fs::read_to_string(&path).map_err(|error| ScriptError::Read(error.to_string()))?;
+        evaluate(&source, runner)
+    })
+    .join()
+    .unwrap_or_else(|_| Err(ScriptError::Evaluate("the script crashed".to_string())))
 }
 
 #[cfg(test)]
@@ -183,5 +193,21 @@ mod tests {
             run_file(Path::new("/definitely/not/a/file.js"), fake()).expect_err("should fail");
 
         assert!(matches!(error, ScriptError::Read(_)));
+    }
+
+    #[test]
+    fn run_file_does_not_depend_on_the_callers_stack() {
+        let dir = tempfile::TempDir::new().expect("should create a temp dir");
+        let path = dir.path().join("section.js");
+        fs::write(&path, r#"({ title: "Test", items: [] });"#).expect("should write");
+
+        let result = thread::Builder::new()
+            .stack_size(64 * 1024)
+            .spawn(move || run_file(&path, fake()))
+            .expect("should spawn")
+            .join()
+            .expect("the caller thread should not crash");
+
+        assert!(result.is_ok());
     }
 }
