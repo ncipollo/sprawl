@@ -39,6 +39,11 @@ impl SplitPane {
         }
     }
 
+    /// Re-runs the selected section's script, forwarding to the content pane.
+    pub fn refresh_selected(&mut self, cx: &mut Context<Self>) {
+        self.content.update(cx, |pane, cx| pane.refresh(cx));
+    }
+
     fn sidebar(&self, cx: &Context<Self>) -> impl IntoElement {
         div()
             .w(self.resize.width())
