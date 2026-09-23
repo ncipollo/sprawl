@@ -163,7 +163,9 @@ mod tests {
         let config = run(&my_prs(), &shell);
 
         assert_eq!(config.items.len(), 2);
-        let SectionItem::Tile(newest) = &config.items[0];
+        let SectionItem::Tile(newest) = &config.items[0] else {
+            panic!("expected a tile")
+        };
         assert_eq!(newest.title, "Show template deserialization errors");
         assert_eq!(newest.subtitle, "WhoopInc/android #19948");
         assert_eq!(
@@ -178,7 +180,9 @@ mod tests {
 
         let config = run(&my_prs(), &shell);
 
-        let SectionItem::Tile(newest) = &config.items[0];
+        let SectionItem::Tile(newest) = &config.items[0] else {
+            panic!("expected a tile")
+        };
         let labels: Vec<(&str, BadgeColor)> = newest
             .badges
             .iter()
@@ -200,7 +204,9 @@ mod tests {
 
         let config = run(&my_prs(), &shell);
 
-        let SectionItem::Tile(draft) = &config.items[1];
+        let SectionItem::Tile(draft) = &config.items[1] else {
+            panic!("expected a tile")
+        };
         let labels: Vec<&str> = draft.badges.iter().map(|b| b.label.as_str()).collect();
         assert_eq!(labels, vec!["1 comment", "No review", "No checks", "Draft"]);
     }

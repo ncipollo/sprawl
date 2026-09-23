@@ -67,7 +67,9 @@ mod tests {
         let config = evaluate(source, fake()).expect("should parse");
 
         assert_eq!(config.title, "Test");
-        let SectionItem::Tile(tile) = &config.items[0];
+        let SectionItem::Tile(tile) = &config.items[0] else {
+            panic!("expected a tile")
+        };
         assert_eq!(tile.title, "hello");
     }
 
@@ -164,7 +166,9 @@ mod tests {
         let config = evaluate(&source, fake()).expect("should parse");
 
         for (name, item) in FORBIDDEN_GLOBALS.iter().zip(&config.items) {
-            let SectionItem::Tile(tile) = item;
+            let SectionItem::Tile(tile) = item else {
+                panic!("expected a tile")
+            };
             assert_eq!(tile.title, "undefined", "{name} is reachable from scripts");
         }
     }
@@ -175,7 +179,9 @@ mod tests {
 
         let config = evaluate(source, fake()).expect("should parse");
 
-        let SectionItem::Tile(tile) = &config.items[0];
+        let SectionItem::Tile(tile) = &config.items[0] else {
+            panic!("expected a tile")
+        };
         assert!(
             !tile
                 .title

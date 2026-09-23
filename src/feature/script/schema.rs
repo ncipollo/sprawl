@@ -2,9 +2,11 @@
 //! layer maps these into gpui components.
 
 pub mod badge;
+pub mod group;
 pub mod tile;
 
 pub use badge::{BadgeColor, BadgeItem};
+pub use group::{GroupItem, LeafItem};
 pub use tile::TileItem;
 
 use serde::Deserialize;
@@ -22,6 +24,7 @@ pub struct SectionConfig {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SectionItem {
     Tile(TileItem),
+    Group(GroupItem),
 }
 
 #[cfg(test)]
@@ -44,7 +47,9 @@ mod tests {
         let config: SectionConfig = serde_json::from_str(json).expect("should parse");
 
         assert_eq!(config.title, "My PRs");
-        let SectionItem::Tile(tile) = &config.items[0];
+        let SectionItem::Tile(tile) = &config.items[0] else {
+            panic!("expected a tile")
+        };
         assert_eq!(tile.title, "Fix the bug");
         assert_eq!(tile.subtitle, "o/r #7");
         assert_eq!(tile.badges[0].label, "Approved");
