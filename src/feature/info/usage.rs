@@ -16,7 +16,7 @@ pub fn render() -> String {
      result stays on screen while the script re-runs in the background.\n\
      Until a script's first run finishes, its sidebar title is derived\n\
      from its file name (my_prs.js is shown as \"My Prs\").\n\n\
-     See also: --info scripts, --info tiles, --info example\n"
+     See also: --info scripts, --info tiles, --info groups, --info example\n"
         .to_string()
 }
 

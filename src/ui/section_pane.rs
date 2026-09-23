@@ -161,12 +161,19 @@ impl SectionPane {
             .config(path)
             .map(|config| config.items.as_slice())
             .unwrap_or_default();
-        div().flex().flex_row().flex_wrap().gap_3().p_3().children(
-            items
-                .iter()
-                .enumerate()
-                .map(|(index, entry)| item::render_item(index, entry)),
-        )
+        div()
+            .w_full()
+            .flex()
+            .flex_row()
+            .flex_wrap()
+            .gap_3()
+            .p_3()
+            .children(
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, entry)| item::render_item(index, entry)),
+            )
     }
 }
 

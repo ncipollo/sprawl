@@ -2,6 +2,7 @@
 //! one topic at a time instead of reading a single giant page.
 
 pub mod example;
+pub mod groups;
 pub mod scripts;
 pub mod tiles;
 pub mod usage;
@@ -30,6 +31,11 @@ pub const TOPICS: &[Topic] = &[
         name: "tiles",
         summary: "The tile item schema and badge colors",
         render: tiles::render,
+    },
+    Topic {
+        name: "groups",
+        summary: "Grouping tiles under a shared title",
+        render: groups::render,
     },
     Topic {
         name: "example",

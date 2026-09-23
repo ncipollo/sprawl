@@ -8,7 +8,7 @@ pub fn render() -> String {
      the section object. End every script with an expression like:\n\n\
      \x20 ({ title: \"My Section\", items });\n\n\
      The object has two fields: title, the section's sidebar name, and\n\
-     items, an array of typed items (see --info tiles).\n\n\
+     items, an array of typed items (see --info tiles, --info groups).\n\n\
      THE SHELL FUNCTION\n\
      shell(command) runs command through /bin/sh -c and returns its\n\
      standard output as a string.\n\
@@ -22,7 +22,7 @@ pub fn render() -> String {
      Scripts have no fetch, no file system, no network, no timers, and\n\
      no imports. The shell function is the only way out. Standard\n\
      JavaScript built-ins (JSON, Math, String, Array) are available.\n\n\
-     See also: --info tiles, --info example\n"
+     See also: --info tiles, --info groups, --info example\n"
         .to_string()
 }
 
