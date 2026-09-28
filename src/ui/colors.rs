@@ -12,3 +12,4 @@ pub const SUCCESS: u32 = 0x4ec9b0;
 pub const DANGER: u32 = 0xf14c4c;
 pub const WARNING: u32 = 0xcca700;
 pub const NEUTRAL: u32 = 0x8c8c8c;
+pub const CHART_SERIES: u32 = 0x569cd6;

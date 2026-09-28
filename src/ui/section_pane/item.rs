@@ -2,11 +2,13 @@
 //! separate from the view so it's testable without gpui.
 
 use crate::feature::script::schema::{
-    BadgeColor, BadgeItem, GroupItem, LeafItem, SectionItem, TileItem,
+    BadgeColor, BadgeItem, ChartItem, GroupItem, LeafItem, SectionItem, TileItem,
 };
 use crate::ui::colors;
-use crate::ui::components::group::Group;
+use crate::ui::components::chart_card::ChartCard;
+use crate::ui::components::group::{Group, GroupChild};
 use crate::ui::components::tile::{Tile, TileBadge};
+use crate::ui::section_pane::chart;
 use gpui::{App, IntoElement, RenderOnce, Window};
 
 /// The rendered form of one section item. An enum rather than `AnyElement`
@@ -15,6 +17,7 @@ use gpui::{App, IntoElement, RenderOnce, Window};
 pub enum ItemElement {
     Tile(Tile),
     Group(Group),
+    Chart(ChartCard),
 }
 
 impl RenderOnce for ItemElement {
@@ -22,6 +25,7 @@ impl RenderOnce for ItemElement {
         match self {
             ItemElement::Tile(tile) => tile.into_any_element(),
             ItemElement::Group(group) => group.into_any_element(),
+            ItemElement::Chart(card) => card.into_any_element(),
         }
     }
 }
@@ -31,27 +35,36 @@ pub fn render_item(index: usize, item: &SectionItem) -> ItemElement {
     match item {
         SectionItem::Tile(data) => ItemElement::Tile(tile(index, data)),
         SectionItem::Group(data) => ItemElement::Group(group(index, data)),
+        SectionItem::Chart(data) => ItemElement::Chart(chart_card(index, data)),
     }
 }
 
-// Nested tiles reuse `("tile", child_index)`: gpui scopes element ids by
-// their ancestor path, so the group's id keeps them distinct from top-level
-// tiles.
+// Nested items reuse `("tile", child_index)` and `("chart", child_index)`:
+// gpui scopes element ids by their ancestor path, so the group's id keeps
+// them distinct from top-level items.
 fn group(index: usize, data: &GroupItem) -> Group {
     let mut group = Group::new(("group", index));
     if let Some(title) = data.title.clone() {
         group = group.title(title);
     }
-    for (child_index, leaf) in data.items.iter().enumerate() {
-        group = group.child(leaf_tile(child_index, leaf));
+    for (child_index, leaf_item) in data.items.iter().enumerate() {
+        group = group.child(leaf(child_index, leaf_item));
     }
     group
 }
 
-fn leaf_tile(index: usize, leaf: &LeafItem) -> Tile {
+fn leaf(index: usize, leaf: &LeafItem) -> GroupChild {
     match leaf {
-        LeafItem::Tile(data) => tile(index, data),
+        LeafItem::Tile(data) => GroupChild::Tile(tile(index, data)),
+        LeafItem::Chart(data) => GroupChild::Chart(chart_card(index, data)),
     }
+}
+
+/// Builds the graph now, so a builder failure lands as text in the card
+/// rather than a panic in the view.
+fn chart_card(index: usize, data: &ChartItem) -> ChartCard {
+    let graph = chart::build_graph(data).map_err(|error| error.to_string());
+    ChartCard::new(("chart", index), data.title.clone(), graph).size(chart::card_size(data.size))
 }
 
 fn tile(index: usize, data: &TileItem) -> Tile {
@@ -85,6 +98,8 @@ fn color_value(color: BadgeColor) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::feature::script::schema::{ChartSamples, ChartSize};
+    use crate::ui::components::chart_card::ChartCardSize;
     use gpui::SharedString;
 
     fn tile_item(title: &str) -> TileItem {
@@ -93,6 +108,16 @@ mod tests {
             subtitle: String::new(),
             badges: Vec::new(),
             url: None,
+        }
+    }
+
+    fn chart_item(title: &str) -> ChartItem {
+        ChartItem {
+            title: title.to_string(),
+            plot: Vec::new(),
+            samples: ChartSamples::Numeric(vec![(0.0, 1.0), (1.0, 2.0)]),
+            y_range: None,
+            size: ChartSize::Small,
         }
     }
 
@@ -153,7 +178,7 @@ mod tests {
         let group = expect_group(render_item(1, &item));
 
         assert_eq!(group.title_text().map(SharedString::as_ref), Some("Review"));
-        assert_eq!(group.tiles().len(), 2);
+        assert_eq!(group.children().len(), 2);
     }
 
     #[test]
@@ -163,6 +188,35 @@ mod tests {
         let group = expect_group(render_item(0, &item));
 
         assert!(group.title_text().is_none());
-        assert_eq!(group.tiles().len(), 1);
+        assert_eq!(group.children().len(), 1);
+    }
+
+    #[test]
+    fn a_chart_item_renders_as_a_chart_card() {
+        let item = SectionItem::Chart(chart_item("Load"));
+
+        let ItemElement::Chart(card) = render_item(0, &item) else {
+            panic!("expected a chart card")
+        };
+
+        assert_eq!(card.title_text(), "Load");
+        assert_eq!(card.card_size(), ChartCardSize::Small);
+        assert!(card.error().is_none());
+    }
+
+    #[test]
+    fn a_group_renders_charts_beside_tiles() {
+        let item = SectionItem::Group(GroupItem {
+            title: None,
+            items: vec![
+                LeafItem::Tile(tile_item("a")),
+                LeafItem::Chart(chart_item("Load")),
+            ],
+        });
+
+        let group = expect_group(render_item(0, &item));
+
+        assert_eq!(group.children().len(), 2);
+        assert!(matches!(group.children()[1], GroupChild::Chart(_)));
     }
 }
