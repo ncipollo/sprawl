@@ -1,12 +1,12 @@
-//! A labelled container of leaf items. Nesting is one level deep by design:
+//! A labelled container of tiles and charts. Nesting is one level deep by design:
 //! `LeafItem` rejects a group so the ui never has to recurse.
 
-use crate::feature::script::schema::{SectionItem, TileItem};
+use crate::feature::script::schema::{ChartItem, SectionItem, TileItem};
 use serde::Deserialize;
 use serde::de::{Deserializer, Error as DeError};
 
 /// The data behind a group container.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GroupItem {
     #[serde(default)]
     pub title: Option<String>,
@@ -15,17 +15,19 @@ pub struct GroupItem {
 }
 
 /// An item allowed inside a group: any section item except another group.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LeafItem {
     Tile(TileItem),
+    Chart(ChartItem),
 }
 
 impl<'de> Deserialize<'de> for LeafItem {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         match SectionItem::deserialize(deserializer)? {
             SectionItem::Tile(tile) => Ok(LeafItem::Tile(tile)),
+            SectionItem::Chart(chart) => Ok(LeafItem::Chart(chart)),
             SectionItem::Group(_) => Err(DeError::custom(
-                "a group cannot contain another group: nest only tiles inside items",
+                "a group cannot contain another group: nest only tiles and charts inside items",
             )),
         }
     }
@@ -58,7 +60,9 @@ mod tests {
 
         assert_eq!(group.title.as_deref(), Some("Review"));
         assert_eq!(group.items.len(), 2);
-        let LeafItem::Tile(tile) = &group.items[0];
+        let LeafItem::Tile(tile) = &group.items[0] else {
+            panic!("expected a tile")
+        };
         assert_eq!(tile.title, "x");
     }
 
@@ -97,8 +101,23 @@ mod tests {
     }
 
     #[test]
-    fn a_non_tile_leaf_type_is_rejected() {
-        let json = r#"{"type": "group", "items": [{"type": "chart", "title": "x"}]}"#;
+    fn a_group_can_contain_a_chart() {
+        let json = r#"{
+            "type": "group",
+            "items": [
+                {"type": "tile", "title": "x"},
+                {"type": "chart", "title": "Load", "series": "numeric", "samples": [[1, 2]]}
+            ]
+        }"#;
+
+        let group = expect_group(parse(json).expect("should parse"));
+
+        assert!(matches!(group.items[1], LeafItem::Chart(_)));
+    }
+
+    #[test]
+    fn an_unknown_leaf_type_is_rejected() {
+        let json = r#"{"type": "group", "items": [{"type": "widget", "title": "x"}]}"#;
 
         assert!(parse(json).is_err());
     }

@@ -4,7 +4,8 @@ pub fn render() -> String {
     "TILE ITEMS\n\
      Every entry in a section's items array is an object with a type\n\
      field. A \"tile\" is a fixed-width card in a wrapping grid; a\n\
-     \"group\" is a labelled box of tiles (see --info groups).\n\n\
+     \"group\" is a labelled box of tiles and charts (see --info groups);\n\
+     a \"chart\" is a graph card (see --info chart).\n\n\
      \x20 {\n\
      \x20   \"type\": \"tile\",\n\
      \x20   \"title\": \"...\",       // required; wraps to two lines\n\
@@ -16,7 +17,7 @@ pub fn render() -> String {
      Each badge is { label, color }. color accepts the named tokens\n\
      success, warning, danger, and neutral, which follow the app\n\
      palette, or a raw hex value like \"#4ec9b0\".\n\n\
-     See also: --info groups, --info scripts, --info example\n"
+     See also: --info groups, --info chart, --info scripts, --info example\n"
         .to_string()
 }
 

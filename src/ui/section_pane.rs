@@ -1,6 +1,7 @@
 //! The content pane: a grid of items produced by the selected section's
 //! script.
 
+pub mod chart;
 pub mod item;
 
 use crate::feature::script;

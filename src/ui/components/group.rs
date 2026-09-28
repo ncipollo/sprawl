@@ -1,16 +1,46 @@
-//! A bordered container that clusters related tiles under an optional title.
+//! A bordered container that clusters related tiles and charts under an
+//! optional title.
 
 use crate::ui::colors;
+use crate::ui::components::chart_card::ChartCard;
 use crate::ui::components::tile::Tile;
 use gpui::{App, ElementId, IntoElement, RenderOnce, SharedString, Window, div, prelude::*, rgb};
 
-/// A full-width outline around a nested wrapping grid of tiles. Built
+/// An item a group can hold: anything but another group.
+#[derive(IntoElement)]
+pub enum GroupChild {
+    Tile(Tile),
+    Chart(ChartCard),
+}
+
+impl RenderOnce for GroupChild {
+    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+        match self {
+            GroupChild::Tile(tile) => tile.into_any_element(),
+            GroupChild::Chart(card) => card.into_any_element(),
+        }
+    }
+}
+
+impl From<Tile> for GroupChild {
+    fn from(tile: Tile) -> Self {
+        GroupChild::Tile(tile)
+    }
+}
+
+impl From<ChartCard> for GroupChild {
+    fn from(card: ChartCard) -> Self {
+        GroupChild::Chart(card)
+    }
+}
+
+/// A full-width outline around a nested wrapping grid of items. Built
 /// fluently, then rendered by the grid that owns it.
 #[derive(IntoElement)]
 pub struct Group {
     id: ElementId,
     title: Option<SharedString>,
-    children: Vec<Tile>,
+    children: Vec<GroupChild>,
 }
 
 impl Group {
@@ -27,8 +57,8 @@ impl Group {
         self
     }
 
-    pub fn child(mut self, tile: Tile) -> Self {
-        self.children.push(tile);
+    pub fn child(mut self, child: impl Into<GroupChild>) -> Self {
+        self.children.push(child.into());
         self
     }
 
@@ -36,7 +66,7 @@ impl Group {
         self.title.as_ref()
     }
 
-    pub fn tiles(&self) -> &[Tile] {
+    pub fn children(&self) -> &[GroupChild] {
         &self.children
     }
 
@@ -48,7 +78,7 @@ impl Group {
             .child(title)
     }
 
-    fn grid(children: Vec<Tile>) -> impl IntoElement {
+    fn grid(children: Vec<GroupChild>) -> impl IntoElement {
         div()
             .flex()
             .flex_row()
@@ -83,13 +113,14 @@ impl RenderOnce for Group {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui_charts::GraphBuilder;
 
     #[test]
-    fn new_starts_without_a_title_or_tiles() {
+    fn new_starts_without_a_title_or_children() {
         let group = Group::new("group");
 
         assert!(group.title_text().is_none());
-        assert!(group.tiles().is_empty());
+        assert!(group.children().is_empty());
     }
 
     #[test]
@@ -105,6 +136,18 @@ mod tests {
             .child(Tile::new(("tile", 0usize), "first"))
             .child(Tile::new(("tile", 1usize), "second"));
 
-        assert_eq!(group.tiles().len(), 2);
+        assert_eq!(group.children().len(), 2);
+    }
+
+    #[test]
+    fn child_accepts_tiles_and_charts() {
+        let card = ChartCard::new(("chart", 0usize), "Load", Ok(GraphBuilder::new().build()));
+
+        let group = Group::new("group")
+            .child(Tile::new(("tile", 0usize), "first"))
+            .child(card);
+
+        assert!(matches!(group.children()[0], GroupChild::Tile(_)));
+        assert!(matches!(group.children()[1], GroupChild::Chart(_)));
     }
 }

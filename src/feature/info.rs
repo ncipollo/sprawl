@@ -1,6 +1,7 @@
 //! Topic registry for `--info`, so AI agents can walk the documentation
 //! one topic at a time instead of reading a single giant page.
 
+pub mod chart;
 pub mod example;
 pub mod groups;
 pub mod scripts;
@@ -34,8 +35,13 @@ pub const TOPICS: &[Topic] = &[
     },
     Topic {
         name: "groups",
-        summary: "Grouping tiles under a shared title",
+        summary: "Grouping tiles and charts under a shared title",
         render: groups::render,
+    },
+    Topic {
+        name: "chart",
+        summary: "The chart item: series kinds, plots, samples, size",
+        render: chart::render,
     },
     Topic {
         name: "example",

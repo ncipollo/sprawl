@@ -50,7 +50,7 @@ pub fn run_file(path: &Path, runner: Arc<dyn ShellRunner>) -> Result<SectionConf
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feature::script::schema::SectionItem;
+    use crate::feature::script::schema::{ChartSamples, SectionItem};
     use crate::feature::script::shell::fake::FakeShell;
 
     fn fake() -> Arc<FakeShell> {
@@ -71,6 +71,24 @@ mod tests {
             panic!("expected a tile")
         };
         assert_eq!(tile.title, "hello");
+    }
+
+    #[test]
+    fn a_script_returning_a_chart_parses_its_samples() {
+        let source = r#"
+            const items = [{ type: "chart", title: "Load", series: "numeric", samples: [[1, 2], [2, 4.5]] }];
+            ({ title: "Stats", items });
+        "#;
+
+        let config = evaluate(source, fake()).expect("should parse");
+
+        let SectionItem::Chart(chart) = &config.items[0] else {
+            panic!("expected a chart")
+        };
+        assert_eq!(
+            chart.samples,
+            ChartSamples::Numeric(vec![(1.0, 2.0), (2.0, 4.5)])
+        );
     }
 
     #[test]
