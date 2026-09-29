@@ -1,12 +1,14 @@
 //! Pure mapping from a chart item to a gpui-charts graph. Kept separate from
 //! the view so the enum mapping and builder calls are testable without gpui.
 
-use crate::feature::script::schema::{ChartItem, ChartPlot, ChartSamples, ChartSize, Weekday};
+use crate::feature::script::schema::{
+    ChartItem, ChartPlot, ChartSamples, ChartScrub, ChartSize, Weekday,
+};
 use crate::ui::colors;
 use crate::ui::components::chart_card::ChartCardSize;
 use gpui::{Rgba, rgb};
 use gpui_charts::{
-    ChartError, Graph, NumericSeriesBuilder, PlotKind, TimeSeriesBuilder, ValueAxis,
+    ChartError, Graph, NumericSeriesBuilder, PlotKind, ScrubOptions, TimeSeriesBuilder, ValueAxis,
     Weekday as ChartWeekday, WeekdayBuilder,
 };
 
@@ -47,13 +49,24 @@ pub fn card_size(size: ChartSize) -> ChartCardSize {
     }
 }
 
+/// The gpui-charts scrubber for a scrub token; `Off` leaves the library's
+/// disabled default.
+pub fn scrub_options(scrub: ChartScrub) -> ScrubOptions {
+    match scrub {
+        ChartScrub::Off => ScrubOptions::default(),
+        ChartScrub::Hover => ScrubOptions::hover(),
+        ChartScrub::Press => ScrubOptions::press_and_hold(),
+    }
+}
+
 // The three builders share no trait, so each series kind gets its own
 // near-identical helper. An empty `plot` leaves the builder's default.
 fn time_graph(item: &ChartItem, samples: &[(i64, f64)]) -> Result<Graph, ChartError> {
     let mut builder = TimeSeriesBuilder::new()
         .samples(samples.iter().copied())
         .y_axis(y_axis(item))
-        .color(series_color());
+        .color(series_color())
+        .scrub(scrub_options(item.scrub));
     for plot in &item.plot {
         builder = builder.plot_kind(plot_kind(*plot));
     }
@@ -64,7 +77,8 @@ fn weekday_graph(item: &ChartItem, samples: &[(Weekday, f64)]) -> Result<Graph, 
     let mut builder = WeekdayBuilder::new()
         .values(samples.iter().map(|(day, value)| (weekday(*day), *value)))
         .y_axis(y_axis(item))
-        .color(series_color());
+        .color(series_color())
+        .scrub(scrub_options(item.scrub));
     for plot in &item.plot {
         builder = builder.plot_kind(plot_kind(*plot));
     }
@@ -75,7 +89,8 @@ fn numeric_graph(item: &ChartItem, samples: &[(f64, f64)]) -> Result<Graph, Char
     let mut builder = NumericSeriesBuilder::new()
         .samples(samples.iter().copied())
         .y_axis(y_axis(item))
-        .color(series_color());
+        .color(series_color())
+        .scrub(scrub_options(item.scrub));
     for plot in &item.plot {
         builder = builder.plot_kind(plot_kind(*plot));
     }
@@ -108,6 +123,7 @@ mod tests {
             samples,
             y_range,
             size: ChartSize::Medium,
+            scrub: ChartScrub::Off,
         }
     }
 
@@ -138,6 +154,47 @@ mod tests {
         assert_eq!(card_size(ChartSize::Small), ChartCardSize::Small);
         assert_eq!(card_size(ChartSize::Medium), ChartCardSize::Medium);
         assert_eq!(card_size(ChartSize::Large), ChartCardSize::Large);
+    }
+
+    #[test]
+    fn scrub_tokens_map_to_their_gpui_charts_options() {
+        assert!(!scrub_options(ChartScrub::Off).enabled);
+        assert_eq!(scrub_options(ChartScrub::Hover), ScrubOptions::hover());
+        assert_eq!(
+            scrub_options(ChartScrub::Press),
+            ScrubOptions::press_and_hold()
+        );
+    }
+
+    #[test]
+    fn a_chart_without_scrub_builds_a_graph_that_is_not_scrubbable() {
+        let item = chart_item(ChartSamples::Numeric(vec![(0.0, 1.0)]), Vec::new(), None);
+
+        let graph = build_graph(&item).expect("should build");
+
+        assert!(!graph.is_scrubbable());
+    }
+
+    #[test]
+    fn a_scrub_token_makes_every_plot_scrubbable() {
+        let item = ChartItem {
+            scrub: ChartScrub::Hover,
+            ..chart_item(
+                ChartSamples::Time(vec![(1_700_000_000, 3.0), (1_700_086_400, 5.5)]),
+                vec![ChartPlot::Bar, ChartPlot::Points],
+                None,
+            )
+        };
+
+        let graph = build_graph(&item).expect("should build");
+
+        assert!(graph.is_scrubbable());
+        assert!(
+            graph
+                .plots()
+                .iter()
+                .all(|plot| plot.scrub_options() == ScrubOptions::hover())
+        );
     }
 
     #[test]

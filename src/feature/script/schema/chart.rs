@@ -4,7 +4,7 @@ pub mod sample;
 pub mod token;
 
 pub use sample::ChartSamples;
-pub use token::{ChartPlot, ChartSeries, ChartSize, Weekday};
+pub use token::{ChartPlot, ChartScrub, ChartSeries, ChartSize, Weekday};
 
 use sample::RawSamples;
 use serde::Deserialize;
@@ -20,6 +20,7 @@ pub struct ChartItem {
     pub samples: ChartSamples,
     pub y_range: Option<(f64, f64)>,
     pub size: ChartSize,
+    pub scrub: ChartScrub,
 }
 
 /// The item as written, before its samples are checked against the series.
@@ -34,6 +35,8 @@ struct RawChartItem {
     y_range: Option<(f64, f64)>,
     #[serde(default)]
     size: ChartSize,
+    #[serde(default)]
+    scrub: ChartScrub,
 }
 
 impl TryFrom<RawChartItem> for ChartItem {
@@ -46,6 +49,7 @@ impl TryFrom<RawChartItem> for ChartItem {
             samples: ChartSamples::convert(raw.series, raw.samples)?,
             y_range: checked_y_range(raw.y_range)?,
             size: raw.size,
+            scrub: raw.scrub,
         })
     }
 }
@@ -90,7 +94,8 @@ mod tests {
             "plot": ["line", "points"],
             "samples": [[1700000000, 3], [1700086400, 5.5]],
             "y_range": [0, 10],
-            "size": "large"
+            "size": "large",
+            "scrub": "hover"
         }"#;
 
         let chart = expect_chart(parse(json).expect("should parse"));
@@ -103,6 +108,7 @@ mod tests {
         );
         assert_eq!(chart.y_range, Some((0.0, 10.0)));
         assert_eq!(chart.size, ChartSize::Large);
+        assert_eq!(chart.scrub, ChartScrub::Hover);
     }
 
     #[test]
@@ -140,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn plot_y_range_and_size_are_optional() {
+    fn plot_y_range_size_and_scrub_are_optional() {
         let json = r#"{"type": "chart", "title": "T", "series": "numeric", "samples": [[1, 1]]}"#;
 
         let chart = expect_chart(parse(json).expect("should parse"));
@@ -148,6 +154,7 @@ mod tests {
         assert!(chart.plot.is_empty());
         assert_eq!(chart.y_range, None);
         assert_eq!(chart.size, ChartSize::Medium);
+        assert_eq!(chart.scrub, ChartScrub::Off);
     }
 
     #[test]
@@ -189,6 +196,15 @@ mod tests {
         );
 
         assert!(error.contains("unknown size \"huge\""), "{error}");
+    }
+
+    #[test]
+    fn an_unknown_scrub_is_rejected_with_a_descriptive_error() {
+        let error = error_of(
+            r#"{"type": "chart", "title": "T", "series": "time", "scrub": "tap", "samples": []}"#,
+        );
+
+        assert!(error.contains("unknown scrub \"tap\""), "{error}");
     }
 
     #[test]

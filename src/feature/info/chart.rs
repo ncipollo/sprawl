@@ -11,7 +11,8 @@ pub fn render() -> String {
      \x20   \"plot\": [\"line\", \"points\"], // optional; line, bar, points\n\
      \x20   \"samples\": [[x, y], ...],   // required; may be empty\n\
      \x20   \"y_range\": [0, 10],         // optional; [low, high], else fitted\n\
-     \x20   \"size\": \"medium\"            // optional; small, medium, or large\n\
+     \x20   \"size\": \"medium\",           // optional; small, medium, or large\n\
+     \x20   \"scrub\": \"hover\"            // optional; off, hover, or press\n\
      \x20 }\n\n\
      SERIES\n\
      Each sample is an [x, y] pair and y is always a number. What x is\n\
@@ -25,8 +26,13 @@ pub fn render() -> String {
      SIZE\n\
      small is one tile wide, medium is two tiles wide, and large spans\n\
      the full width of the section. Each has a fixed height.\n\n\
+     SCRUB\n\
+     scrub turns on a pointer scrubber that highlights the sample nearest\n\
+     the pointer and prints its value. hover shows it whenever the pointer\n\
+     is over the graph; press shows it only while the mouse button is held.\n\
+     Omitted or off draws no scrubber.\n\n\
      ERRORS\n\
-     An unknown series, plot, or size token fails the script, as does a\n\
+     An unknown series, plot, size, or scrub token fails the script, as does a\n\
      malformed sample; the error names the sample, e.g. \"sample 2: ...\".\n\n\
      See also: --info tiles, --info groups, --info scripts, --info example\n"
         .to_string()
@@ -48,6 +54,7 @@ mod tests {
             "\"samples\"",
             "\"y_range\"",
             "\"size\"",
+            "\"scrub\"",
         ] {
             assert!(page.contains(field), "missing {field}");
         }
@@ -68,6 +75,15 @@ mod tests {
 
         for plot in ["line", "bar", "points"] {
             assert!(page.contains(plot), "missing {plot}");
+        }
+    }
+
+    #[test]
+    fn page_documents_every_scrub_token() {
+        let page = render();
+
+        for scrub in ["off", "hover", "press"] {
+            assert!(page.contains(scrub), "missing {scrub}");
         }
     }
 

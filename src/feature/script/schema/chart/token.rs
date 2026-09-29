@@ -1,5 +1,5 @@
-//! The chart item's string tokens: series kind, plot kind, card size, and
-//! weekday names.
+//! The chart item's string tokens: series kind, plot kind, card size,
+//! scrub trigger, and weekday names.
 
 use serde::Deserialize;
 use serde::de::{Deserializer, Error as DeError};
@@ -27,6 +27,15 @@ pub enum ChartSize {
     #[default]
     Medium,
     Large,
+}
+
+/// When the pointer scrubber shows the sample nearest the pointer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChartScrub {
+    #[default]
+    Off,
+    Hover,
+    Press,
 }
 
 /// A day of the week, as named by a weekday series' x values.
@@ -67,6 +76,12 @@ impl<'de> Deserialize<'de> for ChartSize {
     }
 }
 
+impl<'de> Deserialize<'de> for ChartScrub {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserialize_token(deserializer, "scrub", "off, hover, or press", parse_scrub)
+    }
+}
+
 /// Reads a string and parses it, naming the field and the valid tokens when
 /// the text is not one of them.
 fn deserialize_token<'de, D: Deserializer<'de>, T>(
@@ -103,6 +118,15 @@ fn parse_size(text: &str) -> Option<ChartSize> {
         "small" => Some(ChartSize::Small),
         "medium" => Some(ChartSize::Medium),
         "large" => Some(ChartSize::Large),
+        _ => None,
+    }
+}
+
+fn parse_scrub(text: &str) -> Option<ChartScrub> {
+    match text {
+        "off" => Some(ChartScrub::Off),
+        "hover" => Some(ChartScrub::Hover),
+        "press" => Some(ChartScrub::Press),
         _ => None,
     }
 }
@@ -168,6 +192,23 @@ mod tests {
     #[test]
     fn size_defaults_to_medium() {
         assert_eq!(ChartSize::default(), ChartSize::Medium);
+    }
+
+    #[test]
+    fn every_scrub_token_parses() {
+        for (token, expected) in [
+            ("off", ChartScrub::Off),
+            ("hover", ChartScrub::Hover),
+            ("press", ChartScrub::Press),
+        ] {
+            let scrub: ChartScrub = parse(token).expect("should parse");
+            assert_eq!(scrub, expected);
+        }
+    }
+
+    #[test]
+    fn scrub_defaults_to_off() {
+        assert_eq!(ChartScrub::default(), ChartScrub::Off);
     }
 
     #[test]

@@ -61,9 +61,12 @@ fn leaf(index: usize, leaf: &LeafItem) -> GroupChild {
 }
 
 /// Builds the graph now, so a builder failure lands as text in the card
-/// rather than a panic in the view.
+/// rather than a panic in the view. The graph gets its own id so a
+/// scrubbable plot can keep its pointer state between frames.
 fn chart_card(index: usize, data: &ChartItem) -> ChartCard {
-    let graph = chart::build_graph(data).map_err(|error| error.to_string());
+    let graph = chart::build_graph(data)
+        .map(|graph| graph.with_id(("graph", index)))
+        .map_err(|error| error.to_string());
     ChartCard::new(("chart", index), data.title.clone(), graph).size(chart::card_size(data.size))
 }
 
@@ -98,7 +101,7 @@ fn color_value(color: BadgeColor) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feature::script::schema::{ChartSamples, ChartSize};
+    use crate::feature::script::schema::{ChartSamples, ChartScrub, ChartSize};
     use crate::ui::components::chart_card::ChartCardSize;
     use gpui::SharedString;
 
@@ -118,6 +121,7 @@ mod tests {
             samples: ChartSamples::Numeric(vec![(0.0, 1.0), (1.0, 2.0)]),
             y_range: None,
             size: ChartSize::Small,
+            scrub: ChartScrub::Off,
         }
     }
 
