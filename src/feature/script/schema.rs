@@ -7,7 +7,10 @@ pub mod group;
 pub mod tile;
 
 pub use badge::{BadgeColor, BadgeItem};
-pub use chart::{ChartItem, ChartPlot, ChartSamples, ChartScrub, ChartSeries, ChartSize, Weekday};
+pub use chart::{
+    ChartItem, ChartPlot, ChartSamples, ChartScrub, ChartScrubTrigger, ChartSeries, ChartSize,
+    Weekday,
+};
 pub use group::{GroupItem, LeafItem};
 pub use tile::TileItem;
 
