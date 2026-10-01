@@ -11,6 +11,10 @@ use gpui_charts::Graph;
 /// The section grid's `gap_3`, so a medium card lines up with two tiles.
 const GRID_GAP: f32 = 12.0;
 
+/// Room above the graph for the scrub ring and value label, which gpui-charts
+/// paints above the plot area's top edge and the body's clip would cut off.
+const SCRUB_HEADROOM: f32 = 18.0;
+
 /// How much of the grid a chart card takes up.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ChartCardSize {
@@ -97,6 +101,7 @@ impl ChartCard {
             Ok(graph) => div()
                 .flex_1()
                 .min_h_0()
+                .pt(px(SCRUB_HEADROOM))
                 .overflow_hidden()
                 .child(graph)
                 .into_any_element(),
@@ -144,7 +149,7 @@ impl RenderOnce for ChartCard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui_charts::GraphBuilder;
+    use gpui_charts::{DEFAULT_PLOT_PADDING, GraphBuilder};
 
     fn graph() -> Result<Graph, String> {
         Ok(GraphBuilder::new().build())
@@ -184,6 +189,15 @@ mod tests {
     fn heights_grow_with_size() {
         assert!(ChartCardSize::Small.height() < ChartCardSize::Medium.height());
         assert!(ChartCardSize::Medium.height() < ChartCardSize::Large.height());
+    }
+
+    #[test]
+    fn headroom_fits_the_scrub_ring_and_value_label() {
+        // 7px ring radius + 2px gap + 11px label font (~14px line height).
+        let needed = 7.0 + 2.0 + 14.0;
+        let available = f32::from(DEFAULT_PLOT_PADDING) + SCRUB_HEADROOM;
+
+        assert!(available >= needed);
     }
 
     #[test]
