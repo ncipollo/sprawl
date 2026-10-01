@@ -2,10 +2,12 @@
 //! the view so the enum mapping and builder calls are testable without gpui.
 
 use crate::feature::script::schema::{
-    ChartItem, ChartPlot, ChartSamples, ChartScrub, ChartSize, Weekday,
+    BadgeColor, ChartItem, ChartPlot, ChartSamples, ChartScrub, ChartScrubTrigger, ChartSize,
+    Weekday,
 };
 use crate::ui::colors;
 use crate::ui::components::chart_card::ChartCardSize;
+use crate::ui::section_pane::item::color_value;
 use gpui::{Rgba, rgb};
 use gpui_charts::{
     ChartError, Graph, NumericSeriesBuilder, PlotKind, ScrubOptions, TimeSeriesBuilder, ValueAxis,
@@ -49,14 +51,36 @@ pub fn card_size(size: ChartSize) -> ChartCardSize {
     }
 }
 
-/// The gpui-charts scrubber for a scrub token; `Off` leaves the library's
-/// disabled default.
-pub fn scrub_options(scrub: ChartScrub) -> ScrubOptions {
-    match scrub {
-        ChartScrub::Off => ScrubOptions::default(),
-        ChartScrub::Hover => ScrubOptions::hover(),
-        ChartScrub::Press => ScrubOptions::press_and_hold(),
+/// The gpui-charts scrubber for a chart's scrub config; an `Off` trigger
+/// leaves the library's disabled default.
+pub fn scrub_options(scrub: &ChartScrub) -> ScrubOptions {
+    let base = match scrub.trigger {
+        ChartScrubTrigger::Off => ScrubOptions::default(),
+        ChartScrubTrigger::Hover => ScrubOptions::hover(),
+        ChartScrubTrigger::Press => ScrubOptions::press_and_hold(),
+    };
+    let options = base
+        .with_show_value(scrub.value)
+        .with_guide(scrub.guide)
+        .with_point(scrub.point);
+    apply_scrub_colors(options, scrub)
+}
+
+fn apply_scrub_colors(mut options: ScrubOptions, scrub: &ChartScrub) -> ScrubOptions {
+    if let Some(color) = scrub.guide_color {
+        options = options.with_guide_color(scrub_color(color));
     }
+    if let Some(color) = scrub.point_color {
+        options = options.with_point_color(scrub_color(color));
+    }
+    if let Some(color) = scrub.value_color {
+        options = options.with_value_color(scrub_color(color));
+    }
+    options
+}
+
+fn scrub_color(color: BadgeColor) -> Rgba {
+    rgb(color_value(color))
 }
 
 // The three builders share no trait, so each series kind gets its own
@@ -66,7 +90,7 @@ fn time_graph(item: &ChartItem, samples: &[(i64, f64)]) -> Result<Graph, ChartEr
         .samples(samples.iter().copied())
         .y_axis(y_axis(item))
         .color(series_color())
-        .scrub(scrub_options(item.scrub));
+        .scrub(scrub_options(&item.scrub));
     for plot in &item.plot {
         builder = builder.plot_kind(plot_kind(*plot));
     }
@@ -78,7 +102,7 @@ fn weekday_graph(item: &ChartItem, samples: &[(Weekday, f64)]) -> Result<Graph, 
         .values(samples.iter().map(|(day, value)| (weekday(*day), *value)))
         .y_axis(y_axis(item))
         .color(series_color())
-        .scrub(scrub_options(item.scrub));
+        .scrub(scrub_options(&item.scrub));
     for plot in &item.plot {
         builder = builder.plot_kind(plot_kind(*plot));
     }
@@ -90,7 +114,7 @@ fn numeric_graph(item: &ChartItem, samples: &[(f64, f64)]) -> Result<Graph, Char
         .samples(samples.iter().copied())
         .y_axis(y_axis(item))
         .color(series_color())
-        .scrub(scrub_options(item.scrub));
+        .scrub(scrub_options(&item.scrub));
     for plot in &item.plot {
         builder = builder.plot_kind(plot_kind(*plot));
     }
@@ -123,7 +147,7 @@ mod tests {
             samples,
             y_range,
             size: ChartSize::Medium,
-            scrub: ChartScrub::Off,
+            scrub: ChartScrub::default(),
         }
     }
 
@@ -156,14 +180,75 @@ mod tests {
         assert_eq!(card_size(ChartSize::Large), ChartCardSize::Large);
     }
 
+    fn scrub_with(trigger: ChartScrubTrigger) -> ChartScrub {
+        ChartScrub::from_trigger(trigger)
+    }
+
     #[test]
     fn scrub_tokens_map_to_their_gpui_charts_options() {
-        assert!(!scrub_options(ChartScrub::Off).enabled);
-        assert_eq!(scrub_options(ChartScrub::Hover), ScrubOptions::hover());
+        assert!(!scrub_options(&scrub_with(ChartScrubTrigger::Off)).enabled);
         assert_eq!(
-            scrub_options(ChartScrub::Press),
+            scrub_options(&scrub_with(ChartScrubTrigger::Hover)),
+            ScrubOptions::hover()
+        );
+        assert_eq!(
+            scrub_options(&scrub_with(ChartScrubTrigger::Press)),
             ScrubOptions::press_and_hold()
         );
+    }
+
+    #[test]
+    fn hiding_the_ring_keeps_the_guide_and_value() {
+        let scrub = ChartScrub {
+            point: false,
+            ..scrub_with(ChartScrubTrigger::Hover)
+        };
+
+        let options = scrub_options(&scrub);
+
+        assert_eq!(options, ScrubOptions::hover().with_point(false));
+        assert!(options.style.show_guide);
+        assert!(options.show_value);
+    }
+
+    #[test]
+    fn hiding_the_value_and_guide_maps_to_the_options() {
+        let scrub = ChartScrub {
+            value: false,
+            guide: false,
+            ..scrub_with(ChartScrubTrigger::Press)
+        };
+
+        let options = scrub_options(&scrub);
+
+        assert!(!options.show_value);
+        assert!(!options.style.show_guide);
+        assert!(options.style.show_point);
+    }
+
+    #[test]
+    fn scrub_colors_resolve_named_tokens_and_hex() {
+        let scrub = ChartScrub {
+            guide_color: Some(BadgeColor::Success),
+            point_color: Some(BadgeColor::Hex(0x123456)),
+            value_color: Some(BadgeColor::Danger),
+            ..scrub_with(ChartScrubTrigger::Hover)
+        };
+
+        let style = scrub_options(&scrub).style;
+
+        assert_eq!(style.guide_color, Some(rgb(colors::SUCCESS).into()));
+        assert_eq!(style.point_color, Some(rgb(0x123456).into()));
+        assert_eq!(style.value_color, Some(rgb(colors::DANGER).into()));
+    }
+
+    #[test]
+    fn unset_scrub_colors_stay_unset() {
+        let style = scrub_options(&scrub_with(ChartScrubTrigger::Hover)).style;
+
+        assert_eq!(style.guide_color, None);
+        assert_eq!(style.point_color, None);
+        assert_eq!(style.value_color, None);
     }
 
     #[test]
@@ -178,7 +263,7 @@ mod tests {
     #[test]
     fn a_scrub_token_makes_every_plot_scrubbable() {
         let item = ChartItem {
-            scrub: ChartScrub::Hover,
+            scrub: scrub_with(ChartScrubTrigger::Hover),
             ..chart_item(
                 ChartSamples::Time(vec![(1_700_000_000, 3.0), (1_700_086_400, 5.5)]),
                 vec![ChartPlot::Bar, ChartPlot::Points],

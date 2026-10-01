@@ -1,10 +1,12 @@
 //! The chart item: a titled data series drawn as a graph card.
 
 pub mod sample;
+pub mod scrub;
 pub mod token;
 
 pub use sample::ChartSamples;
-pub use token::{ChartPlot, ChartScrub, ChartSeries, ChartSize, Weekday};
+pub use scrub::ChartScrub;
+pub use token::{ChartPlot, ChartScrubTrigger, ChartSeries, ChartSize, Weekday};
 
 use sample::RawSamples;
 use serde::Deserialize;
@@ -68,7 +70,7 @@ fn checked_y_range(range: Option<(f64, f64)>) -> Result<Option<(f64, f64)>, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feature::script::schema::SectionItem;
+    use crate::feature::script::schema::{BadgeColor, SectionItem};
 
     fn parse(json: &str) -> Result<SectionItem, serde_json::Error> {
         serde_json::from_str(json)
@@ -108,7 +110,10 @@ mod tests {
         );
         assert_eq!(chart.y_range, Some((0.0, 10.0)));
         assert_eq!(chart.size, ChartSize::Large);
-        assert_eq!(chart.scrub, ChartScrub::Hover);
+        assert_eq!(
+            chart.scrub,
+            ChartScrub::from_trigger(ChartScrubTrigger::Hover)
+        );
     }
 
     #[test]
@@ -154,7 +159,7 @@ mod tests {
         assert!(chart.plot.is_empty());
         assert_eq!(chart.y_range, None);
         assert_eq!(chart.size, ChartSize::Medium);
-        assert_eq!(chart.scrub, ChartScrub::Off);
+        assert_eq!(chart.scrub, ChartScrub::default());
     }
 
     #[test]
@@ -205,6 +210,30 @@ mod tests {
         );
 
         assert!(error.contains("unknown scrub \"tap\""), "{error}");
+    }
+
+    #[test]
+    fn an_object_scrub_deserializes_inside_a_chart() {
+        let json = r#"{
+            "type": "chart", "title": "T", "series": "numeric", "samples": [[1, 1]],
+            "scrub": {"trigger": "press", "point": false, "guide_color": "warning"}
+        }"#;
+
+        let chart = expect_chart(parse(json).expect("should parse"));
+
+        assert_eq!(chart.scrub.trigger, ChartScrubTrigger::Press);
+        assert!(!chart.scrub.point);
+        assert_eq!(chart.scrub.guide_color, Some(BadgeColor::Warning));
+    }
+
+    #[test]
+    fn an_unknown_scrub_field_fails_the_chart() {
+        let error = error_of(
+            r#"{"type": "chart", "title": "T", "series": "time", "samples": [],
+                "scrub": {"ring": false}}"#,
+        );
+
+        assert!(error.contains("unknown field `ring`"), "{error}");
     }
 
     #[test]

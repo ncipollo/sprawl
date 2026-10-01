@@ -12,7 +12,7 @@ pub fn render() -> String {
      \x20   \"samples\": [[x, y], ...],   // required; may be empty\n\
      \x20   \"y_range\": [0, 10],         // optional; [low, high], else fitted\n\
      \x20   \"size\": \"medium\",           // optional; small, medium, or large\n\
-     \x20   \"scrub\": \"hover\"            // optional; off, hover, or press\n\
+     \x20   \"scrub\": \"hover\"            // optional; off, hover, press, or an object\n\
      \x20 }\n\n\
      SERIES\n\
      Each sample is an [x, y] pair and y is always a number. What x is\n\
@@ -30,10 +30,23 @@ pub fn render() -> String {
      scrub turns on a pointer scrubber that highlights the sample nearest\n\
      the pointer and prints its value. hover shows it whenever the pointer\n\
      is over the graph; press shows it only while the mouse button is held.\n\
-     Omitted or off draws no scrubber.\n\n\
+     Omitted or off draws no scrubber. Pass an object to style it; every\n\
+     field is optional:\n\n\
+     \x20 \"scrub\": {\n\
+     \x20   \"trigger\": \"hover\",         // off, hover, or press; default hover\n\
+     \x20   \"value\": true,              // draw the value text; default true\n\
+     \x20   \"guide\": true,              // draw the vertical guide line; default true\n\
+     \x20   \"guide_color\": \"#ffffff\",   // default translucent white\n\
+     \x20   \"point\": true,              // draw the ring; default true\n\
+     \x20   \"point_color\": \"success\",   // default the plot's color\n\
+     \x20   \"value_color\": \"neutral\"    // default near-white\n\
+     \x20 }\n\n\
+     Colors take success, warning, danger, neutral, or #RRGGBB. The string\n\
+     form is shorthand for an object with just that trigger.\n\n\
      ERRORS\n\
-     An unknown series, plot, size, or scrub token fails the script, as does a\n\
-     malformed sample; the error names the sample, e.g. \"sample 2: ...\".\n\n\
+     An unknown series, plot, size, or scrub token fails the script, as does an\n\
+     unknown scrub field, a bad scrub color, or a malformed sample; the error\n\
+     names the sample, e.g. \"sample 2: ...\".\n\n\
      See also: --info tiles, --info groups, --info scripts, --info example\n"
         .to_string()
 }
@@ -84,6 +97,32 @@ mod tests {
 
         for scrub in ["off", "hover", "press"] {
             assert!(page.contains(scrub), "missing {scrub}");
+        }
+    }
+
+    #[test]
+    fn page_documents_every_scrub_field_and_default() {
+        let page = render();
+
+        for field in [
+            "\"trigger\"",
+            "\"value\"",
+            "\"guide\"",
+            "\"guide_color\"",
+            "\"point\"",
+            "\"point_color\"",
+            "\"value_color\"",
+        ] {
+            assert!(page.contains(field), "missing {field}");
+        }
+        for default in [
+            "default hover",
+            "default translucent white",
+            "default the plot's color",
+            "default near-white",
+            "#RRGGBB",
+        ] {
+            assert!(page.contains(default), "missing {default}");
         }
     }
 

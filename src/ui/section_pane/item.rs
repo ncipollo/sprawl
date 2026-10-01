@@ -88,7 +88,7 @@ pub fn badge(badge: &BadgeItem) -> TileBadge {
 
 /// Resolves a badge colour to a raw hex value: named tokens map to the
 /// palette, hex values pass through.
-fn color_value(color: BadgeColor) -> u32 {
+pub(crate) fn color_value(color: BadgeColor) -> u32 {
     match color {
         BadgeColor::Success => colors::SUCCESS,
         BadgeColor::Warning => colors::WARNING,
@@ -121,7 +121,7 @@ mod tests {
             samples: ChartSamples::Numeric(vec![(0.0, 1.0), (1.0, 2.0)]),
             y_range: None,
             size: ChartSize::Small,
-            scrub: ChartScrub::Off,
+            scrub: ChartScrub::default(),
         }
     }
 
