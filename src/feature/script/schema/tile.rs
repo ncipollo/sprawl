@@ -1,10 +1,10 @@
 //! The tile card item.
 
 use crate::feature::script::schema::badge::BadgeItem;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// The data behind a tile card.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TileItem {
     pub title: String,
     #[serde(default)]
