@@ -2,8 +2,10 @@
 
 use crate::cli::info;
 use crate::feature::server;
+use crate::network::server as http;
 use crate::ui::app;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
+use std::net::{IpAddr, SocketAddr};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -22,13 +24,25 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Run headless: evaluate every section script on an interval and
-    /// write each rendered section to JSON under ~/.sprawl/output.
-    Serve {
-        /// Seconds between renders of every section.
-        #[arg(long, value_name = "SECONDS", default_value_t = server::DEFAULT_INTERVAL_SECS, value_parser = clap::value_parser!(u64).range(1..))]
-        interval: u64,
-    },
+    /// Run headless: render every section script on an interval into JSON
+    /// under ~/.sprawl/output, and serve the results over HTTP.
+    Serve(ServeArgs),
+}
+
+#[derive(Debug, Args)]
+struct ServeArgs {
+    /// Seconds between renders of every section.
+    #[arg(long, value_name = "SECONDS", default_value_t = server::DEFAULT_INTERVAL_SECS, value_parser = clap::value_parser!(u64).range(1..))]
+    interval: u64,
+
+    /// Address to listen on. Defaults to loopback: the server has no
+    /// authentication, so only expose it on networks you trust.
+    #[arg(long, value_name = "ADDRESS", default_value = "127.0.0.1")]
+    host: IpAddr,
+
+    /// Port to listen on.
+    #[arg(long, value_name = "PORT", default_value_t = http::DEFAULT_PORT)]
+    port: u16,
 }
 
 /// Parses the real command line and runs sprawl.
@@ -37,21 +51,27 @@ pub fn run() -> ExitCode {
     if let Some(topic) = info {
         return info::run(topic.as_deref());
     }
-    if let Some(Command::Serve { interval }) = command {
-        return serve(interval);
+    if let Some(Command::Serve(args)) = command {
+        return serve(args);
     }
     app::run();
     ExitCode::SUCCESS
 }
 
-fn serve(interval: u64) -> ExitCode {
-    match server::run(Duration::from_secs(interval)) {
+fn serve(args: ServeArgs) -> ExitCode {
+    let service = match server::start(Duration::from_secs(args.interval)) {
+        Ok(service) => service,
+        Err(error) => return failure(error),
+    };
+    match http::serve(service, SocketAddr::new(args.host, args.port)) {
         Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            eprintln!("sprawl: {error}");
-            ExitCode::FAILURE
-        }
+        Err(error) => failure(error),
     }
+}
+
+fn failure(error: impl std::fmt::Display) -> ExitCode {
+    eprintln!("sprawl: {error}");
+    ExitCode::FAILURE
 }
 
 #[cfg(test)]
@@ -89,10 +109,12 @@ mod tests {
     fn serve_defaults_its_interval() {
         let cli = Cli::try_parse_from(["sprawl", "serve"]).expect("should parse");
 
-        let Some(Command::Serve { interval }) = cli.command else {
+        let Some(Command::Serve(args)) = cli.command else {
             panic!("expected serve")
         };
-        assert_eq!(interval, server::DEFAULT_INTERVAL_SECS);
+        assert_eq!(args.interval, server::DEFAULT_INTERVAL_SECS);
+        assert_eq!(args.port, http::DEFAULT_PORT);
+        assert!(args.host.is_loopback());
     }
 
     #[test]
@@ -100,10 +122,10 @@ mod tests {
         let cli =
             Cli::try_parse_from(["sprawl", "serve", "--interval", "30"]).expect("should parse");
 
-        let Some(Command::Serve { interval }) = cli.command else {
+        let Some(Command::Serve(args)) = cli.command else {
             panic!("expected serve")
         };
-        assert_eq!(interval, 30);
+        assert_eq!(args.interval, 30);
     }
 
     #[test]

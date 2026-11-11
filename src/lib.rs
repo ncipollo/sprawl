@@ -2,4 +2,5 @@
 
 pub mod cli;
 pub mod feature;
+pub mod network;
 pub mod ui;

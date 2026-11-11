@@ -1,6 +1,6 @@
 # Architecture
 
-The code is broken down into three layers:
+The code is broken down into four layers:
 
 ## cli
 
@@ -9,6 +9,10 @@ A thin clap router; `cli::router::run` is the entry point `main` calls. No domai
 ## ui
 
 The view layer, built with gpui. `app::run` creates the `Application` and opens the root window. Each view gets its own file and implements `Render`. No domain logic lives here — views call through to the feature layer.
+
+## network
+
+Transport for headless mode (`sprawl serve`). `network::server` is an axum router whose handlers are thin: they call `feature::server::service::SectionService` on a blocking thread and map the result to a status code. Endpoints: `GET /sections`, `GET /sections/{id}`, `POST /sections/{id}/refresh`. A section id is its script's file stem; rendered output lives in `~/.sprawl/output/<id>.json`.
 
 ## feature
 
