@@ -3,8 +3,8 @@
 //! fake.
 
 use crate::feature::script::schema::SectionConfig;
+use crate::feature::section::SectionKey;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 /// How long a script result is considered fresh.
@@ -29,7 +29,7 @@ struct Entry {
 /// Section results per script, with a time to live.
 pub struct SectionCache {
     ttl: Duration,
-    entries: HashMap<PathBuf, Entry>,
+    entries: HashMap<SectionKey, Entry>,
 }
 
 impl SectionCache {
@@ -44,9 +44,9 @@ impl SectionCache {
         }
     }
 
-    /// How usable the cached result for the script at `path` is, as of `now`.
-    pub fn state(&self, path: &Path, now: Instant) -> CacheState {
-        match self.entries.get(path) {
+    /// How usable the cached result for the section `key` is, as of `now`.
+    pub fn state(&self, key: &SectionKey, now: Instant) -> CacheState {
+        match self.entries.get(key) {
             None => CacheState::Missing,
             Some(entry) if now.duration_since(entry.fetched_at) < self.ttl => CacheState::Fresh,
             Some(_) => CacheState::Stale,
@@ -54,19 +54,19 @@ impl SectionCache {
     }
 
     /// Whether the script has produced any result, fresh or not.
-    pub fn contains(&self, path: &Path) -> bool {
-        self.entries.contains_key(path)
+    pub fn contains(&self, key: &SectionKey) -> bool {
+        self.entries.contains_key(key)
     }
 
     /// The cached section, if the script has produced one.
-    pub fn config(&self, path: &Path) -> Option<&SectionConfig> {
-        self.entries.get(path).map(|entry| &entry.config)
+    pub fn config(&self, key: &SectionKey) -> Option<&SectionConfig> {
+        self.entries.get(key).map(|entry| &entry.config)
     }
 
-    /// Replaces the cached result for the script at `path`, run at `now`.
-    pub fn store(&mut self, path: PathBuf, config: SectionConfig, now: Instant) {
+    /// Replaces the cached result for the section `key`, run at `now`.
+    pub fn store(&mut self, key: SectionKey, config: SectionConfig, now: Instant) {
         self.entries.insert(
-            path,
+            key,
             Entry {
                 config,
                 fetched_at: now,
@@ -84,9 +84,10 @@ impl Default for SectionCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
-    fn path() -> PathBuf {
-        PathBuf::from("/tmp/section.js")
+    fn path() -> SectionKey {
+        SectionKey::Script(PathBuf::from("/tmp/section.js"))
     }
 
     fn config(title: &str) -> SectionConfig {
@@ -162,7 +163,11 @@ mod tests {
         let now = Instant::now();
         cache.store(path(), config("T"), now);
 
-        assert!(cache.config(Path::new("/tmp/other.js")).is_none());
+        assert!(
+            cache
+                .config(&SectionKey::Script(PathBuf::from("/tmp/other.js")))
+                .is_none()
+        );
         assert!(cache.config(&path()).is_some());
     }
 }

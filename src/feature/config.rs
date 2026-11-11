@@ -7,6 +7,9 @@ use crate::feature::section::Section;
 use std::io;
 use std::path::{Path, PathBuf};
 
+/// Shown in place of the content pane when no section scripts exist.
+pub const NO_SECTIONS_MESSAGE: &str = "No config scripts found in ~/.sprawl/default.";
+
 /// The user's sprawl config root, `~/.sprawl`.
 pub fn config_root() -> Option<PathBuf> {
     std::env::home_dir().map(|home| home.join(".sprawl"))
@@ -30,10 +33,7 @@ pub fn list_sections(dir: &Path) -> io::Result<Vec<Section>> {
         .into_iter()
         .map(|path| {
             let fallback_title = fallback_title(&path);
-            Section {
-                path,
-                fallback_title,
-            }
+            Section::local(path, fallback_title)
         })
         .collect())
 }

@@ -4,6 +4,7 @@
 pub mod resize;
 
 use crate::feature::section::Section;
+use crate::feature::section::source::SectionSource;
 use crate::ui::colors;
 use crate::ui::section_pane::SectionPane;
 use crate::ui::split_pane::resize::ResizeState;
@@ -11,6 +12,7 @@ use gpui::{
     App, Context, Entity, IntoElement, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Render,
     Subscription, Window, canvas, div, prelude::*, px, rgb,
 };
+use std::sync::Arc;
 
 const DIVIDER_WIDTH: f32 = 6.0;
 
@@ -27,8 +29,13 @@ pub struct SplitPane {
 }
 
 impl SplitPane {
-    pub fn new(sections: Vec<Section>, cx: &mut Context<Self>) -> Self {
-        let content = cx.new(|cx| SectionPane::new(&sections, cx));
+    pub fn new(
+        sections: Vec<Section>,
+        source: Arc<dyn SectionSource>,
+        no_sections_message: String,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let content = cx.new(|cx| SectionPane::new(&sections, source, no_sections_message, cx));
         let observation = cx.observe(&content, |_, _, cx| cx.notify());
         Self {
             resize: ResizeState::new(),

@@ -53,7 +53,7 @@ impl SectionRenderer {
         Ok(sections
             .iter()
             .filter_map(|section| {
-                let id = paths::section_id(&section.path)?;
+                let id = paths::id_of(section)?;
                 let result = self.render_section(section);
                 Some(RenderOutcome { id, result })
             })
@@ -65,7 +65,7 @@ impl SectionRenderer {
         let sections = config::list_sections(&self.scripts_dir)?;
         let section = sections
             .iter()
-            .find(|section| paths::section_id(&section.path).as_deref() == Some(id))
+            .find(|section| paths::id_of(section).as_deref() == Some(id))
             .ok_or_else(|| RenderError::UnknownSection(id.to_string()))?;
         self.render_section(section)
     }
@@ -73,8 +73,12 @@ impl SectionRenderer {
     /// Runs one script and replaces its JSON file. A failing script leaves
     /// the previous file untouched.
     pub fn render_section(&self, section: &Section) -> Result<(), RenderError> {
-        let id = paths::section_id(&section.path).unwrap_or_default();
-        let config = script::run_file(&section.path, self.runner.clone())?;
+        let id = paths::id_of(section).unwrap_or_default();
+        let path = section
+            .key
+            .script_path()
+            .ok_or_else(|| RenderError::UnknownSection(id.clone()))?;
+        let config = script::run_file(path, self.runner.clone())?;
         let json = serde_json::to_string_pretty(&config)?;
         let _guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
         fs::create_dir_all(&self.output_dir)?;

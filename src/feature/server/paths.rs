@@ -3,6 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::feature::section::Section;
+
 /// The directory rendered sections are written to, `~/.sprawl/output`.
 pub fn output_dir(root: &Path) -> PathBuf {
     root.join("output")
@@ -11,6 +13,11 @@ pub fn output_dir(root: &Path) -> PathBuf {
 /// The stable, path-safe id of the section backed by `script`.
 pub fn section_id(script: &Path) -> Option<String> {
     script.file_stem()?.to_str().map(str::to_string)
+}
+
+/// The id of a local section; `None` for a remote one.
+pub fn id_of(section: &Section) -> Option<String> {
+    section_id(section.key.script_path()?)
 }
 
 /// The JSON file holding section `id`'s rendered output.

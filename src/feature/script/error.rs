@@ -19,6 +19,9 @@ pub enum ScriptError {
     /// The script's final value did not match the section schema.
     #[error("The script returned an unexpected shape: {0}")]
     Schema(String),
+    /// A sprawl server could not be reached or gave an unusable answer.
+    #[error("The sprawl server request failed: {0}")]
+    Remote(String),
 }
 
 #[cfg(test)]
