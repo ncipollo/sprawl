@@ -14,6 +14,8 @@ The view layer, built with gpui. `app::run` creates the `Application` and opens 
 
 Transport for headless mode (`sprawl serve`). `network::server` is an axum router whose handlers are thin: they call `feature::server::service::SectionService` on a blocking thread and map the result to a status code. Endpoints: `GET /sections`, `GET /sections/{id}`, `POST /sections/{id}/refresh`. A section id is its script's file stem; rendered output lives in `~/.sprawl/output/<id>.json`.
 
+Also the client: `network::client::RemoteSource` implements `feature::section::source::SectionSource`, so `sprawl --connect <URL>` swaps where the ui gets content without the ui knowing. Local mode (`LocalSource`) is the default and unchanged. Remote sections are keyed by `SectionKey::Remote(id)`; selecting one forces a server refresh first.
+
 ## feature
 
 Where all domain logic lives. The ui layer calls through to feature. Contains no gpui types.

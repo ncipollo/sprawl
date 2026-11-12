@@ -1,91 +1,123 @@
 //! The content pane: a grid of items produced by the selected section's
-//! script.
+//! source.
 
 pub mod chart;
 pub mod item;
 
-use crate::feature::script;
-use crate::feature::script::shell::SystemShell;
-use crate::feature::section::Section;
+use crate::feature::section::source::SectionSource;
 use crate::feature::section::store::{DisplayState, FetchDecision, SectionStore};
+use crate::feature::section::{Section, SectionKey};
 use crate::ui::colors;
 use gpui::{AnyElement, Context, IntoElement, Render, SharedString, Window, div, prelude::*, rgb};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 const LOADING_MESSAGE: &str = "Loading…";
 const EMPTY_MESSAGE: &str = "Nothing here right now.";
 const REFRESHING_MESSAGE: &str = "Refreshing…";
-const NO_SECTIONS_MESSAGE: &str = "No config scripts found in ~/.sprawl/default.";
+
+/// How a fetch should treat the source's own caching.
+#[derive(Clone, Copy)]
+enum FetchKind {
+    Load,
+    Refresh,
+}
 
 /// The content pane: a grid of item tiles for the selected section.
 pub struct SectionPane {
     store: SectionStore,
     selected: Option<Section>,
+    source: Arc<dyn SectionSource>,
+    no_sections_message: String,
 }
 
 impl SectionPane {
-    /// Creates the pane and starts running every section's script, so the
-    /// sidebar gets its script-provided titles and the cache is warm before
-    /// a section is opened.
-    pub fn new(sections: &[Section], cx: &mut Context<Self>) -> Self {
+    /// Creates the pane and starts loading every section, so the sidebar
+    /// gets its real titles and the cache is warm before a section is
+    /// opened. `no_sections_message` is shown when `sections` is empty.
+    pub fn new(
+        sections: &[Section],
+        source: Arc<dyn SectionSource>,
+        no_sections_message: String,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let mut pane = Self {
             store: SectionStore::new(),
             selected: sections.first().cloned(),
+            source,
+            no_sections_message,
         };
         for section in sections {
-            pane.load(&section.path, cx);
+            pane.load(&section.key, cx);
         }
         pane
     }
 
-    /// Shows `section`, running its script when nothing fresh is cached.
+    /// Shows `section`. A local section runs its script when nothing fresh
+    /// is cached; a remote one is refreshed on the server first.
     pub fn select(&mut self, section: Section, cx: &mut Context<Self>) {
-        self.load(&section.path, cx);
+        if self.source.refreshes_on_select() {
+            self.refresh_key(&section.key, cx);
+        } else {
+            self.load(&section.key, cx);
+        }
         self.selected = Some(section);
         cx.notify();
     }
 
-    /// The sidebar title for `section`: the script's own title once it has
-    /// run, its file-name-derived title until then.
+    /// The sidebar title for `section`: the section's own title once it has
+    /// loaded, its fallback title until then.
     pub fn sidebar_title(&self, section: &Section) -> String {
         self.store
-            .title(&section.path)
+            .title(&section.key)
             .map_or_else(|| section.fallback_title.clone(), str::to_string)
     }
 
-    /// Re-runs the selected section's script even when its cache entry is
-    /// fresh. A no-op with no selection or a run already in flight.
+    /// Recomputes the selected section even when its cache entry is fresh.
+    /// A no-op with no selection or a fetch already in flight.
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         let Some(section) = self.selected.clone() else {
             return;
         };
-        let decision = self.store.force_refresh(&section.path);
-        self.act_on(decision, section.path, cx);
+        self.refresh_key(&section.key, cx);
         cx.notify();
     }
 
-    fn load(&mut self, path: &Path, cx: &mut Context<Self>) {
-        let decision = self.store.visit(path);
-        self.act_on(decision, path.to_path_buf(), cx);
+    fn load(&mut self, key: &SectionKey, cx: &mut Context<Self>) {
+        let decision = self.store.visit(key);
+        self.act_on(decision, key.clone(), FetchKind::Load, cx);
     }
 
-    fn act_on(&mut self, decision: FetchDecision, path: PathBuf, cx: &mut Context<Self>) {
+    fn refresh_key(&mut self, key: &SectionKey, cx: &mut Context<Self>) {
+        let decision = self.store.force_refresh(key);
+        self.act_on(decision, key.clone(), FetchKind::Refresh, cx);
+    }
+
+    fn act_on(
+        &mut self,
+        decision: FetchDecision,
+        key: SectionKey,
+        kind: FetchKind,
+        cx: &mut Context<Self>,
+    ) {
         match decision {
             FetchDecision::Idle => {}
-            FetchDecision::Fetch | FetchDecision::Refresh => self.fetch(path, cx),
+            FetchDecision::Fetch | FetchDecision::Refresh => self.fetch(key, kind, cx),
         }
     }
 
-    fn fetch(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+    fn fetch(&mut self, key: SectionKey, kind: FetchKind, cx: &mut Context<Self>) {
+        let source = self.source.clone();
         cx.spawn(async move |pane, cx| {
-            let script_path = path.clone();
+            let fetch_key = key.clone();
             let fetch = cx.background_spawn(async move {
-                script::run_file(&script_path, Arc::new(SystemShell))
+                match kind {
+                    FetchKind::Load => source.load(&fetch_key),
+                    FetchKind::Refresh => source.refresh(&fetch_key),
+                }
             });
             let result = fetch.await;
             pane.update(cx, |pane, cx| {
-                pane.store.finish_fetch(&path, result);
+                pane.store.finish_fetch(&key, result);
                 cx.notify();
             })
             .ok();
@@ -102,7 +134,7 @@ impl SectionPane {
         let refreshing = self
             .selected
             .as_ref()
-            .is_some_and(|section| self.store.is_refreshing(&section.path));
+            .is_some_and(|section| self.store.is_refreshing(&section.key));
         div()
             .flex()
             .items_center()
@@ -127,15 +159,15 @@ impl SectionPane {
 
     fn body(&self) -> AnyElement {
         let Some(section) = &self.selected else {
-            return Self::message(NO_SECTIONS_MESSAGE).into_any_element();
+            return Self::message(self.no_sections_message.clone()).into_any_element();
         };
-        match self.store.display_state(&section.path) {
+        match self.store.display_state(&section.key) {
             DisplayState::Loading => Self::message(LOADING_MESSAGE).into_any_element(),
             DisplayState::Failed => {
-                Self::message(self.failure_message(&section.path)).into_any_element()
+                Self::message(self.failure_message(&section.key)).into_any_element()
             }
             DisplayState::Empty => Self::message(EMPTY_MESSAGE).into_any_element(),
-            DisplayState::Populated => self.grid(&section.path).into_any_element(),
+            DisplayState::Populated => self.grid(&section.key).into_any_element(),
         }
     }
 
@@ -150,16 +182,16 @@ impl SectionPane {
             .child(text.into())
     }
 
-    fn failure_message(&self, path: &Path) -> String {
+    fn failure_message(&self, key: &SectionKey) -> String {
         self.store
-            .error(path)
+            .error(key)
             .map_or_else(|| EMPTY_MESSAGE.to_string(), ToString::to_string)
     }
 
-    fn grid(&self, path: &Path) -> impl IntoElement {
+    fn grid(&self, key: &SectionKey) -> impl IntoElement {
         let items = self
             .store
-            .config(path)
+            .config(key)
             .map(|config| config.items.as_slice())
             .unwrap_or_default();
         div()

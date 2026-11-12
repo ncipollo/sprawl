@@ -36,7 +36,7 @@ impl SectionService {
         Ok(sections
             .into_iter()
             .filter_map(|section| {
-                let id = paths::section_id(&section.path)?;
+                let id = paths::id_of(&section)?;
                 let title = self
                     .read_rendered(&id)
                     .map(|config| config.title)
@@ -68,7 +68,7 @@ impl SectionService {
         let sections = config::list_sections(self.renderer.scripts_dir())?;
         let known = sections
             .iter()
-            .any(|section| paths::section_id(&section.path).as_deref() == Some(id));
+            .any(|section| paths::id_of(section).as_deref() == Some(id));
         if known {
             Ok(())
         } else {

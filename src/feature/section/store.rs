@@ -6,9 +6,9 @@
 use crate::feature::clock::{Clock, SystemClock};
 use crate::feature::script::error::ScriptError;
 use crate::feature::script::schema::SectionConfig;
+use crate::feature::section::SectionKey;
 use crate::feature::section::cache::{CacheState, DEFAULT_TTL, SectionCache};
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// What the caller should do after a section becomes visible.
@@ -36,8 +36,8 @@ pub enum DisplayState {
 /// running, and the last error for each script.
 pub struct SectionStore {
     cache: SectionCache,
-    loading: HashSet<PathBuf>,
-    errors: HashMap<PathBuf, ScriptError>,
+    loading: HashSet<SectionKey>,
+    errors: HashMap<SectionKey, ScriptError>,
     clock: Box<dyn Clock>,
 }
 
@@ -55,93 +55,92 @@ impl SectionStore {
         }
     }
 
-    /// Records that the script at `path` has become visible and reports
+    /// Records that the section `key` has become visible and reports
     /// what to do. A stale result is refreshed in the background while it
     /// stays on screen.
-    pub fn visit(&mut self, path: &Path) -> FetchDecision {
-        if self.loading.contains(path) {
+    pub fn visit(&mut self, key: &SectionKey) -> FetchDecision {
+        if self.loading.contains(key) {
             return FetchDecision::Idle;
         }
-        let decision = match self.cache.state(path, self.clock.now()) {
+        let decision = match self.cache.state(key, self.clock.now()) {
             CacheState::Fresh => return FetchDecision::Idle,
             CacheState::Stale => FetchDecision::Refresh,
             CacheState::Missing => FetchDecision::Fetch,
         };
-        self.start_loading(path, decision)
+        self.start_loading(key, decision)
     }
 
-    /// Forces the script at `path` to re-run regardless of cache freshness.
+    /// Forces the section `key` to re-run regardless of cache freshness.
     /// A run already in flight is left alone.
-    pub fn force_refresh(&mut self, path: &Path) -> FetchDecision {
-        if self.loading.contains(path) {
+    pub fn force_refresh(&mut self, key: &SectionKey) -> FetchDecision {
+        if self.loading.contains(key) {
             return FetchDecision::Idle;
         }
-        let decision = if self.cache.contains(path) {
+        let decision = if self.cache.contains(key) {
             FetchDecision::Refresh
         } else {
             FetchDecision::Fetch
         };
-        self.start_loading(path, decision)
+        self.start_loading(key, decision)
     }
 
-    fn start_loading(&mut self, path: &Path, decision: FetchDecision) -> FetchDecision {
-        self.loading.insert(path.to_path_buf());
+    fn start_loading(&mut self, key: &SectionKey, decision: FetchDecision) -> FetchDecision {
+        self.loading.insert(key.clone());
         decision
     }
 
     /// Records the outcome of a run started by [`Self::visit`]. A failed
     /// refresh keeps any cached result, so a script blip does not empty
     /// the pane.
-    pub fn finish_fetch(&mut self, path: &Path, result: Result<SectionConfig, ScriptError>) {
-        self.loading.remove(path);
+    pub fn finish_fetch(&mut self, key: &SectionKey, result: Result<SectionConfig, ScriptError>) {
+        self.loading.remove(key);
         match result {
             Ok(config) => {
-                self.cache
-                    .store(path.to_path_buf(), config, self.clock.now());
-                self.errors.remove(path);
+                self.cache.store(key.clone(), config, self.clock.now());
+                self.errors.remove(key);
             }
             Err(error) => {
-                self.errors.insert(path.to_path_buf(), error);
+                self.errors.insert(key.clone(), error);
             }
         }
     }
 
-    /// The cached section for the script at `path`, if any.
-    pub fn config(&self, path: &Path) -> Option<&SectionConfig> {
-        self.cache.config(path)
+    /// The cached section for the section `key`, if any.
+    pub fn config(&self, key: &SectionKey) -> Option<&SectionConfig> {
+        self.cache.config(key)
     }
 
     /// The script-provided title, if the script has ever succeeded. It
     /// survives a failed refresh because the cached result is retained.
-    pub fn title(&self, path: &Path) -> Option<&str> {
-        self.config(path).map(|config| config.title.as_str())
+    pub fn title(&self, key: &SectionKey) -> Option<&str> {
+        self.config(key).map(|config| config.title.as_str())
     }
 
-    /// The last error recorded for the script at `path`, if any.
-    pub fn error(&self, path: &Path) -> Option<&ScriptError> {
-        self.errors.get(path)
+    /// The last error recorded for the section `key`, if any.
+    pub fn error(&self, key: &SectionKey) -> Option<&ScriptError> {
+        self.errors.get(key)
     }
 
     /// Whether a cached result is on screen while a newer one is computed.
-    pub fn is_refreshing(&self, path: &Path) -> bool {
-        self.loading.contains(path) && self.cache.contains(path)
+    pub fn is_refreshing(&self, key: &SectionKey) -> bool {
+        self.loading.contains(key) && self.cache.contains(key)
     }
 
-    /// What the content pane should show for the script at `path`. A cached
+    /// What the content pane should show for the section `key`. A cached
     /// result always wins over `Loading`/`Failed` — that is what makes this
     /// stale-while-revalidate.
-    pub fn display_state(&self, path: &Path) -> DisplayState {
-        if self.cache.contains(path) {
+    pub fn display_state(&self, key: &SectionKey) -> DisplayState {
+        if self.cache.contains(key) {
             if self
                 .cache
-                .config(path)
+                .config(key)
                 .is_none_or(|config| config.items.is_empty())
             {
                 return DisplayState::Empty;
             }
             return DisplayState::Populated;
         }
-        if self.errors.contains_key(path) && !self.loading.contains(path) {
+        if self.errors.contains_key(key) && !self.loading.contains(key) {
             return DisplayState::Failed;
         }
         DisplayState::Loading
@@ -159,13 +158,14 @@ mod tests {
     use super::*;
     use crate::feature::clock::fake::FixedClock;
     use crate::feature::script::schema::{SectionItem, TileItem};
+    use std::path::PathBuf;
 
     fn store_with_clock(clock: FixedClock) -> SectionStore {
         SectionStore::with_ttl_and_clock(Duration::from_secs(15 * 60), Box::new(clock))
     }
 
-    fn path() -> PathBuf {
-        PathBuf::from("/tmp/section.js")
+    fn path() -> SectionKey {
+        SectionKey::Script(PathBuf::from("/tmp/section.js"))
     }
 
     fn empty_config() -> SectionConfig {
