@@ -31,3 +31,32 @@ pub enum RenderError {
     #[error("no section named {0:?}")]
     UnknownSection(String),
 }
+
+/// Why a request to the section service failed.
+#[derive(Debug, Error)]
+pub enum ServiceError {
+    /// No script has this id.
+    #[error("no section named {0:?}")]
+    UnknownSection(String),
+    /// The section exists but has never rendered successfully.
+    #[error("section {0:?} has not rendered yet")]
+    NotRendered(String),
+    /// Running the script failed.
+    #[error(transparent)]
+    Render(RenderError),
+    /// The scripts or output directory could not be read.
+    #[error("could not read sections: {0}")]
+    Io(#[from] io::Error),
+    /// A rendered file did not parse.
+    #[error("a rendered section file is corrupt: {0}")]
+    Corrupt(String),
+}
+
+impl From<RenderError> for ServiceError {
+    fn from(error: RenderError) -> Self {
+        match error {
+            RenderError::UnknownSection(id) => ServiceError::UnknownSection(id),
+            other => ServiceError::Render(other),
+        }
+    }
+}
