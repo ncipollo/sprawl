@@ -3,14 +3,14 @@
 
 use super::token::ChartScrubTrigger;
 use crate::feature::script::schema::badge::BadgeColor;
-use serde::Deserialize;
 use serde::de::value::{MapAccessDeserializer, StrDeserializer};
 use serde::de::{Deserializer, Error as DeError, IntoDeserializer, MapAccess, Visitor};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// How the pointer scrubber behaves and looks. The defaults match what
 /// gpui-charts draws when no style is set.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 pub struct ChartScrub {
     pub trigger: ChartScrubTrigger,
     pub value: bool,

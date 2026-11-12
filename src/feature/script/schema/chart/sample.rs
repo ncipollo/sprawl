@@ -5,7 +5,7 @@
 use crate::feature::script::schema::chart::token::{
     ChartSeries, WEEKDAY_EXPECTED, Weekday, parse_weekday,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// One value of a pair before the series kind is known.
@@ -29,7 +29,8 @@ impl fmt::Display for RawValue {
 pub(super) type RawSamples = Vec<Vec<RawValue>>;
 
 /// The samples of a chart, typed by their series kind.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
+#[serde(untagged)]
 pub enum ChartSamples {
     /// `(unix seconds, value)`.
     Time(Vec<(i64, f64)>),

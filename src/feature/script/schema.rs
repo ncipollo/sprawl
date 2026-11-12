@@ -14,18 +14,18 @@ pub use chart::{
 pub use group::{GroupItem, LeafItem};
 pub use tile::TileItem;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Everything a script provides for one section: its sidebar title and the
 /// items shown in the content pane.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct SectionConfig {
     pub title: String,
     pub items: Vec<SectionItem>,
 }
 
 /// One item in a section, discriminated by its `type` field.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SectionItem {
     Tile(TileItem),

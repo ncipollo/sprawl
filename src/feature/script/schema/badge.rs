@@ -1,10 +1,10 @@
 //! Badge labels and their colours.
 
-use serde::Deserialize;
 use serde::de::{Deserializer, Error as DeError};
+use serde::{Deserialize, Serialize, Serializer};
 
 /// A coloured-dot label on a tile.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct BadgeItem {
     pub label: String,
     pub color: BadgeColor,
@@ -29,6 +29,18 @@ impl<'de> Deserialize<'de> for BadgeColor {
                  neutral, or #RRGGBB"
             ))
         })
+    }
+}
+
+impl Serialize for BadgeColor {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            BadgeColor::Success => serializer.serialize_str("success"),
+            BadgeColor::Warning => serializer.serialize_str("warning"),
+            BadgeColor::Danger => serializer.serialize_str("danger"),
+            BadgeColor::Neutral => serializer.serialize_str("neutral"),
+            BadgeColor::Hex(value) => serializer.collect_str(&format_args!("#{value:06x}")),
+        }
     }
 }
 

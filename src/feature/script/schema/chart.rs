@@ -9,7 +9,8 @@ pub use scrub::ChartScrub;
 pub use token::{ChartPlot, ChartScrubTrigger, ChartSeries, ChartSize, Weekday};
 
 use sample::RawSamples;
-use serde::Deserialize;
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize, Serializer};
 
 /// The data behind a chart card. The series kind lives in the `samples`
 /// variant, so the ui matches on it directly.
@@ -23,6 +24,33 @@ pub struct ChartItem {
     pub y_range: Option<(f64, f64)>,
     pub size: ChartSize,
     pub scrub: ChartScrub,
+}
+
+impl ChartSamples {
+    /// The series kind these samples were checked against.
+    pub fn series(&self) -> ChartSeries {
+        match self {
+            ChartSamples::Time(_) => ChartSeries::Time,
+            ChartSamples::Weekday(_) => ChartSeries::Weekday,
+            ChartSamples::Numeric(_) => ChartSeries::Numeric,
+        }
+    }
+}
+
+// Written by hand because `series` is derived from the samples variant and
+// the output must read back through `RawChartItem`.
+impl Serialize for ChartItem {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut item = serializer.serialize_struct("ChartItem", 7)?;
+        item.serialize_field("title", &self.title)?;
+        item.serialize_field("series", &self.samples.series())?;
+        item.serialize_field("plot", &self.plot)?;
+        item.serialize_field("samples", &self.samples)?;
+        item.serialize_field("y_range", &self.y_range)?;
+        item.serialize_field("size", &self.size)?;
+        item.serialize_field("scrub", &self.scrub)?;
+        item.end()
+    }
 }
 
 /// The item as written, before its samples are checked against the series.
@@ -254,5 +282,24 @@ mod tests {
         );
 
         assert!(error.contains("y_range must be [low, high]"), "{error}");
+    }
+}
+
+#[cfg(test)]
+mod serialize_tests {
+    use crate::feature::script::schema::SectionItem;
+
+    #[test]
+    fn a_chart_round_trips_through_json() {
+        let json = r##"{"type": "chart", "title": "t", "series": "weekday",
+            "plot": ["bar"], "samples": [["mon", 1], ["Sun", 2.5]],
+            "y_range": [0, 10], "size": "large",
+            "scrub": {"trigger": "press", "guide_color": "#112233"}}"##;
+        let item: SectionItem = serde_json::from_str(json).expect("should parse");
+
+        let written = serde_json::to_string(&item).expect("should serialize");
+        let back: SectionItem = serde_json::from_str(&written).expect("should read back");
+
+        assert_eq!(back, item);
     }
 }

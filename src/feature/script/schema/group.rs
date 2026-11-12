@@ -2,11 +2,11 @@
 //! `LeafItem` rejects a group so the ui never has to recurse.
 
 use crate::feature::script::schema::{ChartItem, SectionItem, TileItem};
-use serde::Deserialize;
 use serde::de::{Deserializer, Error as DeError};
+use serde::{Deserialize, Serialize};
 
 /// The data behind a group container.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct GroupItem {
     #[serde(default)]
     pub title: Option<String>,
@@ -15,7 +15,8 @@ pub struct GroupItem {
 }
 
 /// An item allowed inside a group: any section item except another group.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum LeafItem {
     Tile(TileItem),
     Chart(ChartItem),

@@ -1,8 +1,8 @@
 //! The chart item's string tokens: series kind, plot kind, card size,
 //! scrub trigger, and weekday names.
 
-use serde::Deserialize;
 use serde::de::{Deserializer, Error as DeError};
+use serde::{Deserialize, Serialize, Serializer};
 
 /// How a chart's x values are interpreted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,6 +84,66 @@ impl<'de> Deserialize<'de> for ChartScrubTrigger {
             "off, hover, or press",
             parse_scrub_trigger,
         )
+    }
+}
+
+impl ChartSeries {
+    fn token(self) -> &'static str {
+        match self {
+            ChartSeries::Time => "time",
+            ChartSeries::Weekday => "weekday",
+            ChartSeries::Numeric => "numeric",
+        }
+    }
+}
+
+impl Serialize for ChartSeries {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.token())
+    }
+}
+
+impl Serialize for ChartPlot {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            ChartPlot::Line => "line",
+            ChartPlot::Bar => "bar",
+            ChartPlot::Points => "points",
+        })
+    }
+}
+
+impl Serialize for ChartSize {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            ChartSize::Small => "small",
+            ChartSize::Medium => "medium",
+            ChartSize::Large => "large",
+        })
+    }
+}
+
+impl Serialize for ChartScrubTrigger {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            ChartScrubTrigger::Off => "off",
+            ChartScrubTrigger::Hover => "hover",
+            ChartScrubTrigger::Press => "press",
+        })
+    }
+}
+
+impl Serialize for Weekday {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            Weekday::Monday => "monday",
+            Weekday::Tuesday => "tuesday",
+            Weekday::Wednesday => "wednesday",
+            Weekday::Thursday => "thursday",
+            Weekday::Friday => "friday",
+            Weekday::Saturday => "saturday",
+            Weekday::Sunday => "sunday",
+        })
     }
 }
 
