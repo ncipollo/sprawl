@@ -5734,6 +5734,8 @@ dependencies = [
  "gpui",
  "gpui-charts",
  "http-body-util",
+ "objc",
+ "raw-window-handle",
  "reqwest",
  "serde",
  "serde_json",

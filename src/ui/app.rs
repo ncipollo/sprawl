@@ -2,6 +2,7 @@ use crate::feature::section::Section;
 use crate::feature::section::source::SectionSource;
 use crate::ui::menu;
 use crate::ui::split_pane::SplitPane;
+use crate::ui::window_blur;
 use gpui::{
     App, AppContext, Application, Bounds, WindowBackgroundAppearance, WindowBounds, WindowOptions,
     px, size,
@@ -28,6 +29,9 @@ pub fn run(sections: Vec<Section>, source: Arc<dyn SectionSource>, no_sections_m
                 |_, cx| cx.new(|cx| SplitPane::new(sections, source, no_sections_message, cx)),
             )
             .expect("failed to open the root window");
+        window
+            .update(cx, |_, window, _| window_blur::apply(window))
+            .ok();
         cx.on_action(move |_: &menu::Refresh, cx: &mut App| {
             // Menu-triggered actions are dispatched from inside an update of
             // this same window, so updating it again here must be deferred
