@@ -6,3 +6,4 @@ pub mod components;
 pub mod menu;
 pub mod section_pane;
 pub mod split_pane;
+pub mod window_blur;
