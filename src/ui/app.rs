@@ -2,7 +2,10 @@ use crate::feature::section::Section;
 use crate::feature::section::source::SectionSource;
 use crate::ui::menu;
 use crate::ui::split_pane::SplitPane;
-use gpui::{App, AppContext, Application, Bounds, WindowBounds, WindowOptions, px, size};
+use gpui::{
+    App, AppContext, Application, Bounds, WindowBackgroundAppearance, WindowBounds, WindowOptions,
+    px, size,
+};
 use std::sync::Arc;
 
 const WINDOW_WIDTH: f32 = 1024.0;
@@ -19,6 +22,7 @@ pub fn run(sections: Vec<Section>, source: Arc<dyn SectionSource>, no_sections_m
             .open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    window_background: WindowBackgroundAppearance::Blurred,
                     ..Default::default()
                 },
                 |_, cx| cx.new(|cx| SplitPane::new(sections, source, no_sections_message, cx)),
