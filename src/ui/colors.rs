@@ -2,7 +2,10 @@
 //! abstraction — just the shared consts every view uses.
 
 pub const SIDEBAR_BACKGROUND: u32 = 0x252526;
-pub const CONTENT_BACKGROUND: u32 = 0x1e1e1e;
+
+// Translucent (0xRRGGBBAA) so the window blur shows through behind them.
+pub const SIDEBAR_BLUR_BACKGROUND: u32 = 0x252526a6;
+pub const CONTENT_BLUR_BACKGROUND: u32 = 0x1e1e1ed9;
 pub const BORDER: u32 = 0x3c3c3c;
 pub const ROW_SELECTED_BACKGROUND: u32 = 0x37373d;
 pub const ROW_HOVER_BACKGROUND: u32 = 0x2a2d2e;

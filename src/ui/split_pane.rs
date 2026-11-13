@@ -10,7 +10,7 @@ use crate::ui::section_pane::SectionPane;
 use crate::ui::split_pane::resize::ResizeState;
 use gpui::{
     App, Context, Entity, IntoElement, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Render,
-    Subscription, Window, canvas, div, prelude::*, px, rgb,
+    Subscription, Window, canvas, div, prelude::*, px, rgb, rgba,
 };
 use std::sync::Arc;
 
@@ -58,7 +58,7 @@ impl SplitPane {
             .h_full()
             .flex()
             .flex_col()
-            .bg(rgb(colors::SIDEBAR_BACKGROUND))
+            .bg(rgba(colors::SIDEBAR_BLUR_BACKGROUND))
             .border_r_1()
             .border_color(rgb(colors::BORDER))
             .children(

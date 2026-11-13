@@ -8,7 +8,9 @@ use crate::feature::section::source::SectionSource;
 use crate::feature::section::store::{DisplayState, FetchDecision, SectionStore};
 use crate::feature::section::{Section, SectionKey};
 use crate::ui::colors;
-use gpui::{AnyElement, Context, IntoElement, Render, SharedString, Window, div, prelude::*, rgb};
+use gpui::{
+    AnyElement, Context, IntoElement, Render, SharedString, Window, div, prelude::*, rgb, rgba,
+};
 use std::sync::Arc;
 
 const LOADING_MESSAGE: &str = "Loading…";
@@ -219,7 +221,7 @@ impl Render for SectionPane {
             .flex()
             .flex_col()
             .overflow_y_scroll()
-            .bg(rgb(colors::CONTENT_BACKGROUND))
+            .bg(rgba(colors::CONTENT_BLUR_BACKGROUND))
             .child(self.header())
             .child(self.body())
     }
