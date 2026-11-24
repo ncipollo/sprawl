@@ -142,7 +142,7 @@ impl SectionPane {
             .items_center()
             .gap_2()
             .px_3()
-            .pt_3()
+            .pt_1()
             .child(
                 div()
                     .text_lg()
@@ -214,15 +214,25 @@ impl SectionPane {
 
 impl Render for SectionPane {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        // gpui clips to rectangles only, so the scroller sits inside the
+        // panel's vertical padding to keep scrolled content off the corners.
         div()
-            .id("section-pane")
-            .flex_1()
-            .h_full()
+            .size_full()
             .flex()
             .flex_col()
-            .overflow_y_scroll()
+            .rounded_lg()
+            .overflow_hidden()
+            .py_2()
             .bg(rgba(colors::CONTENT_BLUR_BACKGROUND))
-            .child(self.header())
-            .child(self.body())
+            .child(
+                div()
+                    .id("section-pane")
+                    .flex_1()
+                    .flex()
+                    .flex_col()
+                    .overflow_y_scroll()
+                    .child(self.header())
+                    .child(self.body()),
+            )
     }
 }

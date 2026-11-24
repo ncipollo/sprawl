@@ -7,8 +7,10 @@ pub const SIDEBAR_BACKGROUND: u32 = 0x252526;
 pub const SIDEBAR_BLUR_BACKGROUND: u32 = 0x25252680;
 pub const CONTENT_BLUR_BACKGROUND: u32 = 0x1e1e1e99;
 pub const BORDER: u32 = 0x3c3c3c;
-pub const ROW_SELECTED_BACKGROUND: u32 = 0x37373d;
 pub const ROW_HOVER_BACKGROUND: u32 = 0x2a2d2e;
+// Translucent white so the fill reads as slightly lighter than the blurred sidebar.
+pub const SIDEBAR_ROW_SELECTED_BACKGROUND: u32 = 0xffffff1a;
+pub const SIDEBAR_ROW_HOVER_BACKGROUND: u32 = 0xffffff0d;
 pub const PRIMARY_TEXT: u32 = 0xffffff;
 pub const SECONDARY_TEXT: u32 = 0xcccccc;
 pub const SUCCESS: u32 = 0x4ec9b0;

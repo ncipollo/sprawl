@@ -2,7 +2,7 @@
 
 use gpui::{App, KeyBinding, Menu, MenuItem, actions};
 
-actions!(sprawl, [Quit, Refresh]);
+actions!(sprawl, [Quit, Refresh, PreviousTab, NextTab]);
 
 /// The application menu bar. The first menu is the macOS application menu.
 pub fn menus() -> Vec<Menu> {
@@ -13,18 +13,24 @@ pub fn menus() -> Vec<Menu> {
         },
         Menu {
             name: "View".into(),
-            items: vec![MenuItem::action("Refresh", Refresh)],
+            items: vec![
+                MenuItem::action("Refresh", Refresh),
+                MenuItem::action("Previous Tab", PreviousTab),
+                MenuItem::action("Next Tab", NextTab),
+            ],
         },
     ]
 }
 
-/// Registers menu actions and installs the menu bar. `Refresh` is bound here
-/// but handled by `ui::app`, which registers the listener once the window's
+/// Registers menu actions and installs the menu bar. `Refresh`, `PreviousTab`
+/// and `NextTab` are bound here but handled by `ui::app`, which registers the listener once the window's
 /// root view exists.
 pub fn init(cx: &mut App) {
     cx.on_action(|_: &Quit, cx: &mut App| cx.quit());
     cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
     cx.bind_keys([KeyBinding::new("cmd-r", Refresh, None)]);
+    cx.bind_keys([KeyBinding::new("cmd-shift-[", PreviousTab, None)]);
+    cx.bind_keys([KeyBinding::new("cmd-shift-]", NextTab, None)]);
     cx.set_menus(menus());
 }
 
@@ -33,7 +39,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn menus_has_a_sprawl_menu_with_a_quit_item_and_a_view_menu_with_a_refresh_item() {
+    fn menus_has_a_sprawl_menu_with_a_quit_item_and_a_view_menu_with_refresh_and_tab_items() {
         let menus = menus();
 
         assert_eq!(menus.len(), 2);
@@ -44,10 +50,14 @@ mod tests {
             _ => panic!("expected a Quit Sprawl action item"),
         }
         assert_eq!(menus[1].name, "View");
-        assert_eq!(menus[1].items.len(), 1);
-        match &menus[1].items[0] {
-            MenuItem::Action { name, .. } => assert_eq!(name, "Refresh"),
-            _ => panic!("expected a Refresh action item"),
-        }
+        let view_items: Vec<_> = menus[1]
+            .items
+            .iter()
+            .map(|item| match item {
+                MenuItem::Action { name, .. } => name.to_string(),
+                _ => panic!("expected only action items in the View menu"),
+            })
+            .collect();
+        assert_eq!(view_items, ["Refresh", "Previous Tab", "Next Tab"]);
     }
 }
