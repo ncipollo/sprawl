@@ -43,6 +43,20 @@ pub fn run(sections: Vec<Section>, source: Arc<dyn SectionSource>, no_sections_m
                     .ok();
             });
         });
+        cx.on_action(move |_: &menu::PreviousTab, cx: &mut App| {
+            cx.defer(move |cx| {
+                window
+                    .update(cx, |pane, _window, cx| pane.select_adjacent(-1, cx))
+                    .ok();
+            });
+        });
+        cx.on_action(move |_: &menu::NextTab, cx: &mut App| {
+            cx.defer(move |cx| {
+                window
+                    .update(cx, |pane, _window, cx| pane.select_adjacent(1, cx))
+                    .ok();
+            });
+        });
         cx.activate(true);
     });
 }
